@@ -34,6 +34,7 @@ echo -e "${BLUE}==========================================${NC}"
 # Проверка, скачаны ли файлы. Если скрипт запущен через curl, скачиваем репо.
 if [ ! -d "panel" ]; then
     log_info "Файлы панели не найдены локально. Клонируем репозиторий..."
+    rm -rf /tmp/smart_vpn_install
     git clone https://github.com/blablajka/serv.git /tmp/smart_vpn_install
     cd /tmp/smart_vpn_install
 fi
