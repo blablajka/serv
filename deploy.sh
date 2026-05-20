@@ -142,15 +142,22 @@ WantedBy=multi-user.target
 EOF
 log_success "awg-server собран и настроен."
 
-# 5. Сборка sing-box-extended
-log_info "Сборка sing-box-extended (это может занять время)..."
+# 5. Установка sing-box-extended (Загрузка готового бинарника)
+log_info "Установка sing-box-extended..."
 mkdir -p /etc/sing-box
 if [ ! -f "/usr/local/bin/sing-box" ]; then
-    git clone https://github.com/shtorm-7/sing-box-extended.git /tmp/sing-box-src
-    cd /tmp/sing-box-src
-    go build -tags with_amneziawg -o /usr/local/bin/sing-box ./cmd/sing-box || handle_error $LINENO
-    cd - > /dev/null
-    rm -rf /tmp/sing-box-src
+    # Скачиваем последний релиз для amd64
+    LATEST_URL=$(curl -s https://api.github.com/repos/shtorm-7/sing-box-extended/releases/latest | grep "browser_download_url" | grep "linux-amd64.tar.gz" | cut -d '"' -f 4)
+    if [ -z "$LATEST_URL" ]; then
+        log_error "Не удалось найти ссылку на релиз sing-box-extended!"
+        exit 1
+    fi
+    wget -qO /tmp/sing-box.tar.gz "$LATEST_URL"
+    tar -xzf /tmp/sing-box.tar.gz -C /tmp/
+    # Архив содержит папку, например sing-box-1.9.0-linux-amd64
+    mv /tmp/sing-box-*-linux-amd64/sing-box /usr/local/bin/sing-box
+    chmod +x /usr/local/bin/sing-box
+    rm -rf /tmp/sing-box.tar.gz /tmp/sing-box-*-linux-amd64
 fi
 
 cat <<EOF > /etc/systemd/system/sing-box.service
