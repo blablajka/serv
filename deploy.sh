@@ -54,16 +54,16 @@ fi
 
 # 1. Установка зависимостей
 log_info "Обновление пакетов и установка зависимостей..."
-apt update -y > /dev/null 2>&1
-apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential software-properties-common > /dev/null 2>&1
+apt update -y || handle_error $LINENO
+apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential software-properties-common wireguard-tools || handle_error $LINENO
 log_success "Зависимости установлены."
 
 # 2. Установка AmneziaWG
 log_info "Установка AmneziaWG..."
 if ! command -v awg &> /dev/null; then
-    add-apt-repository ppa:amnezia/ppa -y > /dev/null 2>&1 || true
-    apt update -y > /dev/null 2>&1
-    apt install -y amneziawg-dkms amneziawg-tools > /dev/null 2>&1
+    add-apt-repository ppa:amnezia/ppa -y || true
+    apt update -y || handle_error $LINENO
+    apt install -y amneziawg-dkms amneziawg-tools || handle_error $LINENO
 fi
 log_success "AmneziaWG установлен."
 
@@ -80,12 +80,12 @@ export PATH=$PATH:/usr/local/go/bin
 log_success "Go установлен ($(go version))."
 
 # 4. Сборка awg-server
-log_info "Сборка awg-server..."
+log_info "Сборка awg-server (это может занять время)..."
 mkdir -p /opt/awg-server
 if [ ! -f "/opt/awg-server/awg-server" ]; then
-    git clone https://github.com/stealthsurf-vpn/awg-server.git /tmp/awg-server-src > /dev/null 2>&1
+    git clone https://github.com/stealthsurf-vpn/awg-server.git /tmp/awg-server-src
     cd /tmp/awg-server-src
-    go build -o /opt/awg-server/awg-server .
+    go build -o /opt/awg-server/awg-server . || handle_error $LINENO
     cd - > /dev/null
     rm -rf /tmp/awg-server-src
 fi
@@ -108,12 +108,12 @@ EOF
 log_success "awg-server собран и настроен."
 
 # 5. Сборка sing-box-extended
-log_info "Сборка sing-box-extended..."
+log_info "Сборка sing-box-extended (это может занять время)..."
 mkdir -p /etc/sing-box
 if [ ! -f "/usr/local/bin/sing-box" ]; then
-    git clone https://github.com/shtorm-7/sing-box-extended.git /tmp/sing-box-src > /dev/null 2>&1
+    git clone https://github.com/shtorm-7/sing-box-extended.git /tmp/sing-box-src
     cd /tmp/sing-box-src
-    go build -tags with_amneziawg -o /usr/local/bin/sing-box ./cmd/sing-box
+    go build -tags with_amneziawg -o /usr/local/bin/sing-box ./cmd/sing-box || handle_error $LINENO
     cd - > /dev/null
     rm -rf /tmp/sing-box-src
 fi
@@ -168,7 +168,7 @@ cp -r . /opt/smart_vpn/
 cd /opt/smart_vpn
 
 python3 -m venv venv
-./venv/bin/pip install -r requirements.txt > /dev/null 2>&1
+./venv/bin/pip install -r requirements.txt || handle_error $LINENO
 
 cat <<EOF > /etc/systemd/system/smart-vpn-panel.service
 [Unit]
@@ -199,10 +199,10 @@ log_success "Веб-панель развернута."
 # 8. Запуск сервисов
 log_info "Запуск всех сервисов..."
 systemctl daemon-reload
-systemctl enable --now awg-server > /dev/null 2>&1
-systemctl enable --now sing-box > /dev/null 2>&1
-systemctl enable --now vpn-routing > /dev/null 2>&1
-systemctl enable --now smart-vpn-panel > /dev/null 2>&1
+systemctl enable --now awg-server || handle_error $LINENO
+systemctl enable --now sing-box || handle_error $LINENO
+systemctl enable --now vpn-routing || handle_error $LINENO
+systemctl enable --now smart-vpn-panel || handle_error $LINENO
 log_success "Сервисы запущены!"
 
 echo -e "${GREEN}==========================================${NC}"
