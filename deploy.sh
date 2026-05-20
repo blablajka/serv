@@ -60,7 +60,16 @@ else
     log_success "Swap уже существует."
 fi
 
-# 1. Установка зависимостей
+# 1. Очистка Ubuntu от лишнего мусора (Экономия ~100MB ОЗУ)
+if grep -qi "ubuntu" /etc/os-release; then
+    log_info "Оптимизация Ubuntu: удаляем snapd для экономии ОЗУ..."
+    systemctl stop snapd.service snapd.socket snapd.seeded.service || true
+    apt autoremove --purge -y snapd || true
+    rm -rf /var/cache/snapd/ || true
+    systemctl disable --now multipathd || true
+fi
+
+# 2. Установка зависимостей
 log_info "Обновление пакетов и установка зависимостей..."
 apt update -y || handle_error $LINENO
 apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential wireguard-tools || handle_error $LINENO
