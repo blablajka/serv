@@ -1,6 +1,8 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 paramiko
 requests
+httpx
 aiogram
+aiofiles
