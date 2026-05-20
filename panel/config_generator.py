@@ -63,13 +63,13 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "interface_name": "tun0",
                 "address": ["10.255.0.1/24"],
                 "auto_route": False,
-                "strict_route": False,
-                "sniff": True
+                "strict_route": False
             }
         ],
         "outbounds": outbounds,
         "route": {
             "rules": [
+                {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
