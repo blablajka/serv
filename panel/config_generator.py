@@ -4,14 +4,8 @@ import os
 def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     """
     Генерирует конфиг sing-box-extended в формате 1.13+.
-    
-    Ключевые изменения (миграция):
-    - WireGuard теперь в секции "endpoints", а не "outbounds"
-    - В outbounds используется type=wireguard с detour на endpoint
-    - DNS серверы: новый формат с полем "type"
-    - Нет "dns" outbound — вместо него action "hijack-dns" в route rules
-    - Нет "sniff" в inbound — вместо него action "sniff" в route rules
-    - Нет "outbound" в dns rules — вместо него "default_domain_resolver" в route
+    Endpoint-теги используются напрямую в selector (без detour-outbounds).
+    Поле amnezia — на уровне endpoint, не peer.
     """
     
     endpoints = []
@@ -24,7 +18,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     for server in servers:
         tag = server["name"]
         endpoint_tag = f"ep-{tag}"
-        selector_outbounds.append(tag)
+        # endpoint_tag используется напрямую в selector — detour не нужен
+        selector_outbounds.append(endpoint_tag)
         
         obfs_params = server.get("amnezia_obfs", {})
         
@@ -68,13 +63,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         if amnezia:
             endpoint["amnezia"] = amnezia
         endpoints.append(endpoint)
-        
-        # Outbound (ссылка на endpoint через detour)
-        outbounds.append({
-            "type": "wireguard",
-            "tag": tag,
-            "detour": endpoint_tag
-        })
 
     outbounds.append({
         "type": "selector",
