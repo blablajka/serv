@@ -63,7 +63,7 @@ fi
 # 1. Установка зависимостей
 log_info "Обновление пакетов и установка зависимостей..."
 apt update -y || handle_error $LINENO
-apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential software-properties-common wireguard-tools || handle_error $LINENO
+apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential wireguard-tools || handle_error $LINENO
 log_success "Зависимости установлены."
 
 # 2. Установка AmneziaWG
@@ -71,6 +71,7 @@ log_info "Установка AmneziaWG..."
 if ! command -v awg &> /dev/null; then
     if grep -qi "ubuntu" /etc/os-release; then
         log_info "Обнаружена Ubuntu, используем официальный PPA..."
+        apt install -y software-properties-common || handle_error $LINENO
         add-apt-repository ppa:amnezia/ppa -y || true
         apt update -y || handle_error $LINENO
         apt install -y amneziawg-dkms amneziawg-tools || handle_error $LINENO
