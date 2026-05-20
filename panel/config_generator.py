@@ -12,7 +12,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         tag = server["name"]
         selector_outbounds.append(tag)
         
-        # Настройка AmneziaWG для зарубежного сервера
         obfs_params = server.get("amnezia_obfs", {})
         amnezia_config = {
             "jc": obfs_params.get("jc", 120),
@@ -36,6 +35,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "private_key": server["private_key"],
             "peer_public_key": server["peer_public_key"],
             "mtu": 1420,
+            "domain_resolver": "dns-local",
             "amnezia": amnezia_config
         })
 
@@ -52,9 +52,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "servers": [
                 {"tag": "dns-google", "type": "udp", "server": "8.8.8.8"},
                 {"tag": "dns-local", "type": "local"}
-            ],
-            "rules": [
-                {"outbound": "any", "server": "dns-local"}
             ],
             "final": "dns-google",
             "strategy": "ipv4_only"
@@ -77,7 +74,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
-            "final": "Select-Outbound"
+            "final": "Select-Outbound",
+            "default_domain_resolver": "dns-local"
         },
         "experimental": {
             "clash_api": {
