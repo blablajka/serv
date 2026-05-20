@@ -51,15 +51,14 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "log": {"level": "info", "timestamp": True},
         "dns": {
             "servers": [
-                {"tag": "dns-remote", "address": "8.8.8.8", "strategy": "ipv4_only"},
-                {"tag": "dns-local", "address": "local", "detour": "direct"},
-                {"tag": "dns-block", "address": "rcode://success"}
+                {"tag": "dns-google", "type": "udp", "server": "8.8.8.8"},
+                {"tag": "dns-local", "type": "local"},
+                {"tag": "dns-block", "type": "local"}
             ],
             "rules": [
-                {"outbound": "any", "server": "dns-local"},
-                {"geosite": ["ru"], "server": "dns-local"}
+                {"outbound": "any", "server": "dns-local"}
             ],
-            "final": "dns-remote",
+            "final": "dns-google",
             "strategy": "ipv4_only"
         },
         "inbounds": [
@@ -67,7 +66,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "type": "tun",
                 "tag": "tun-in",
                 "interface_name": "tun0",
-                "inet4_address": "10.255.0.1/24",
+                "address": ["10.255.0.1/24"],
                 "auto_route": False,
                 "strict_route": False,
                 "sniff": True
@@ -77,7 +76,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "route": {
             "rules": [
                 {"protocol": "dns", "outbound": "dns-out"},
-                {"geoip": ["ru"], "geosite": ["ru"], "outbound": "direct"}
+                {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
             "final": "Select-Outbound"
