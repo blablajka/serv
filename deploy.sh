@@ -32,9 +32,9 @@ echo -e "${BLUE}     Установка Умной VPN-системы          $
 echo -e "${BLUE}==========================================${NC}"
 
 # Проверка ОС
-if ! grep -qi "ubuntu" /etc/os-release; then
-    log_error "Эта система предназначена ТОЛЬКО для Ubuntu 22.04 / 24.04!"
-    log_error "Обнаружена другая ОС (Debian/CentOS и т.д.). Пожалуйста, переустановите ОС на сервере на Ubuntu."
+if ! grep -qiE "ubuntu|debian" /etc/os-release; then
+    log_error "Эта система протестирована только на Ubuntu и Debian!"
+    log_error "Обнаружена неизвестная ОС. Пожалуйста, используйте Ubuntu 22.04 или Debian 12."
     exit 1
 fi
 
@@ -69,9 +69,26 @@ log_success "Зависимости установлены."
 # 2. Установка AmneziaWG
 log_info "Установка AmneziaWG..."
 if ! command -v awg &> /dev/null; then
-    add-apt-repository ppa:amnezia/ppa -y || true
-    apt update -y || handle_error $LINENO
-    apt install -y amneziawg-dkms amneziawg-tools || handle_error $LINENO
+    if grep -qi "ubuntu" /etc/os-release; then
+        log_info "Обнаружена Ubuntu, используем официальный PPA..."
+        add-apt-repository ppa:amnezia/ppa -y || true
+        apt update -y || handle_error $LINENO
+        apt install -y amneziawg-dkms amneziawg-tools || handle_error $LINENO
+    else
+        log_info "Обнаружен Debian, компилируем AmneziaWG из исходников (это займет пару минут)..."
+        apt install -y linux-headers-$(uname -r) build-essential dkms git || handle_error $LINENO
+        
+        # Компиляция модуля ядра
+        git clone https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git /tmp/awg-kernel
+        cd /tmp/awg-kernel
+        make module && make install || handle_error $LINENO
+        
+        # Компиляция утилит (awg)
+        git clone https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/awg-tools
+        cd /tmp/awg-tools/src
+        make && make install || handle_error $LINENO
+        cd /opt/smart_vpn || cd /tmp/smart_vpn_install
+    fi
 fi
 log_success "AmneziaWG установлен."
 

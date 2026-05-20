@@ -156,18 +156,26 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
             "h1": 1, "h2": 2, "h3": 3, "h4": 4
         }
         
-        # Устанавливаем AmneziaWG
-        cmds = [
-            "sudo apt update",
-            "sudo add-apt-repository ppa:amnezia/ppa -y || true",
-            "sudo apt update",
-            "sudo apt install -y amneziawg-dkms amneziawg-tools",
-            "sudo mkdir -p /etc/amnezia/amneziawg/",
-            "sudo awg genkey | sudo tee /etc/amnezia/amneziawg/privatekey | sudo awg pubkey | sudo tee /etc/amnezia/amneziawg/publickey"
-        ]
-        for cmd in cmds:
-            stdin, stdout, stderr = ssh.exec_command(cmd)
-            stdout.channel.recv_exit_status()
+        # Универсальный скрипт установки AmneziaWG (Ubuntu/Debian)
+        setup_script = """
+        sudo apt update -y
+        if grep -qi "ubuntu" /etc/os-release; then
+            sudo add-apt-repository ppa:amnezia/ppa -y || true
+            sudo apt update -y
+            sudo apt install -y amneziawg-dkms amneziawg-tools
+        else
+            sudo apt install -y linux-headers-$(uname -r) build-essential dkms git
+            rm -rf /tmp/awg-kernel /tmp/awg-tools
+            git clone https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git /tmp/awg-kernel
+            cd /tmp/awg-kernel && sudo make module && sudo make install
+            git clone https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/awg-tools
+            cd /tmp/awg-tools/src && sudo make && sudo make install
+        fi
+        sudo mkdir -p /etc/amnezia/amneziawg/
+        sudo awg genkey | sudo tee /etc/amnezia/amneziawg/privatekey | sudo awg pubkey | sudo tee /etc/amnezia/amneziawg/publickey
+        """
+        stdin, stdout, stderr = ssh.exec_command(setup_script)
+        stdout.channel.recv_exit_status()
             
         stdin, stdout, stderr = ssh.exec_command("sudo cat /etc/amnezia/amneziawg/privatekey")
         priv_key = stdout.read().decode().strip()
