@@ -3,8 +3,7 @@ import os
 
 def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     outbounds = [
-        {"type": "direct", "tag": "direct"},
-        {"type": "dns", "tag": "dns-out"}
+        {"type": "direct", "tag": "direct"}
     ]
     
     selector_outbounds = ["direct"]
@@ -52,8 +51,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "dns": {
             "servers": [
                 {"tag": "dns-google", "type": "udp", "server": "8.8.8.8"},
-                {"tag": "dns-local", "type": "local"},
-                {"tag": "dns-block", "type": "local"}
+                {"tag": "dns-local", "type": "local"}
             ],
             "rules": [
                 {"outbound": "any", "server": "dns-local"}
@@ -75,7 +73,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"protocol": "dns", "outbound": "dns-out"},
+                {"port": 53, "action": "hijack-dns"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
