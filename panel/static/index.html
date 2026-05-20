@@ -194,6 +194,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             overflow: hidden;
+            margin-top: 20px;
         }
         .console-titlebar {
             display: flex;
@@ -209,23 +210,43 @@
         .console-dots .y { background: #f59e0b; }
         .console-dots .g { background: #10b981; }
         .console-title { font-size: 12px; color: var(--text-muted); font-family: 'SF Mono', monospace; }
+        .console-actions { display: flex; gap: 8px; align-items: center; }
+        .console-badge {
+            font-size: 10px; font-weight: 600; padding: 2px 8px;
+            border-radius: 20px; font-family: 'SF Mono', monospace;
+        }
+        .console-badge.live { background: rgba(16,185,129,0.2); color: #10b981; }
+        .console-badge.error { background: rgba(239,68,68,0.2); color: #ef4444; }
         .console-body {
-            height: 300px;
+            height: 320px;
             overflow-y: auto;
-            padding: 16px;
+            padding: 12px 16px;
             font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 12px;
-            line-height: 1.8;
+            font-size: 11.5px;
+            line-height: 1.7;
             color: #4ade80;
         }
         .console-body::-webkit-scrollbar { width: 6px; }
         .console-body::-webkit-scrollbar-track { background: transparent; }
         .console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-        .log-line { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .log-line { padding: 1px 0; border-bottom: 1px solid rgba(255,255,255,0.02); word-break: break-all; }
+        .log-line.fatal { color: #ff4444; font-weight: 700; background: rgba(255,0,0,0.07); padding: 2px 4px; border-radius: 3px; }
         .log-line.error { color: #f87171; }
         .log-line.warning { color: #fbbf24; }
-        .log-line.switch { color: #60a5fa; }
+        .log-line.info { color: #4ade80; }
+        .log-line.switch { color: #60a5fa; font-weight: 600; }
+        .log-line.panel { color: #a78bfa; }
+        .log-line.separator { color: #374151; border-bottom: none; padding: 4px 0; }
         .log-empty { color: var(--text-muted); text-align: center; padding-top: 80px; }
+        .singbox-status {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 12px; font-weight: 600;
+            padding: 4px 12px; border-radius: 20px;
+        }
+        .singbox-status.running { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .singbox-status.stopped { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .singbox-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
         /* Server List */
         .server-list { display: flex; flex-direction: column; gap: 12px; }
@@ -356,9 +377,14 @@
         <div v-if="currentTab === 'dashboard'">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-label">Активный узел</div>
-                    <div class="stat-value green">{{ status.now || '—' }}</div>
-                    <div class="stat-sub">Управляется оркестратором</div>
+                    <div class="stat-label">Sing-Box</div>
+                    <div style="margin: 8px 0;">
+                        <span class="singbox-status" :class="singboxRunning ? 'running' : 'stopped'">
+                            <span class="dot"></span>
+                            {{ singboxRunning ? 'Running' : 'Stopped' }}
+                        </span>
+                    </div>
+                    <div class="stat-sub">{{ status.now ? 'Активный: ' + status.now : 'Нет активного outbound' }}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Серверов</div>
@@ -371,14 +397,14 @@
                     <div class="stat-sub">Подключено устройств</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Статус системы</div>
-                    <div class="stat-value green">Online</div>
-                    <div class="stat-sub">Все сервисы активны</div>
+                    <div class="stat-label">Активный узел</div>
+                    <div class="stat-value green" style="font-size:18px; word-break:break-all;">{{ status.now || '—' }}</div>
+                    <div class="stat-sub">Оркестратор</div>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title">📊 Состояние серверов (Оркестратор)</div>
+                <div class="card-title">📊 Состояние серверов</div>
                 <div class="server-list">
                     <div v-for="srv in servers" :key="srv.name" class="server-item">
                         <div class="server-info">
@@ -390,11 +416,11 @@
                         </div>
                         <div class="server-stats">
                             <div class="server-stat">
-                                <div class="server-stat-val">{{ getOrchestratorStat(srv.name, 'gb')?.toFixed(2) || '0' }} GB</div>
+                                <div class="server-stat-val">{{ getOrchestratorStat(srv.name, 'gb')?.toFixed(2) || '—' }} GB</div>
                                 <div class="server-stat-label">Трафик</div>
                             </div>
                             <div class="server-stat">
-                                <div class="server-stat-val">{{ getOrchestratorStat(srv.name, 'users') || '0' }}</div>
+                                <div class="server-stat-val">{{ getOrchestratorStat(srv.name, 'users') ?? '—' }}</div>
                                 <div class="server-stat-label">Юзеров</div>
                             </div>
                         </div>
@@ -402,6 +428,24 @@
                     <div v-if="servers.length === 0" style="text-align:center; padding:40px; color: var(--text-muted);">
                         Нет серверов. Добавьте первый во вкладке «Серверы».
                     </div>
+                </div>
+            </div>
+
+            <!-- Live Logs on Dashboard -->
+            <div class="console-wrap">
+                <div class="console-titlebar">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="console-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+                        <div class="console-title">📡 Системные логи</div>
+                    </div>
+                    <div class="console-actions">
+                        <span class="console-badge" :class="hasFatalLog ? 'error' : 'live'">{{ hasFatalLog ? '⚠ FATAL' : '● LIVE' }}</span>
+                        <button @click="fetchLogs" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">↻</button>
+                    </div>
+                </div>
+                <div class="console-body" ref="dashLogEl">
+                    <div v-for="(log, idx) in logs" :key="idx" class="log-line" :class="logClass(log)">{{ stripAnsi(log) }}</div>
+                    <div v-if="logs.length === 0" class="log-empty">Ожидание логов...</div>
                 </div>
             </div>
         </div>
@@ -438,26 +482,22 @@
                         <div class="topo-node-name">{{ status.now || 'None' }}</div>
                         <div class="topo-node-detail">Оркестратор</div>
                     </div>
-                    <div class="topo-arrow active-arrow">→</div>
-                    <div class="topo-node">
-                        <div class="topo-node-icon">🌐</div>
-                        <div class="topo-node-label">Цель</div>
-                        <div class="topo-node-name">Internet</div>
+                     <div class="console-wrap" style="margin-top:0;">
+                <div class="console-titlebar">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="console-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+                        <div class="console-title">📡 Live Logs — Sing-Box &amp; Orchestrator</div>
                     </div>
+                    <div class="console-actions">
+                        <span class="console-badge" :class="hasFatalLog ? 'error' : 'live'">{{ hasFatalLog ? '⚠ FATAL' : '● LIVE' }}</span>
+                        <button @click="fetchLogs" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">↻</button>
+                    </div>
+                </div>
+                <div class="console-body" ref="topoLogEl">
+                    <div v-for="(log, idx) in logs" :key="idx" class="log-line" :class="logClass(log)">{{ stripAnsi(log) }}</div>
+                    <div v-if="logs.length === 0" class="log-empty">Ожидание логов...</div>
                 </div>
             </div>
-
-            <div class="console-wrap">
-                <div class="console-titlebar">
-                    <div class="console-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
-                    <div class="console-title">📡 Live Logs — Orchestrator & Sing-Box</div>
-                </div>
-                <div class="console-body" id="logs-container">
-                    <div v-for="(log, idx) in logs" :key="idx" class="log-line"
-                         :class="{ error: log.includes('ERROR'), warning: log.includes('WARNING'), switch: log.includes('SWITCH') }">
-                        {{ log }}
-                    </div>
-                    <div v-if="logs.length === 0" class="log-empty">Ожидание логов...</div>
                 </div>
             </div>
         </div>
@@ -564,8 +604,12 @@
                         </div>
                     </div>
                     <button class="btn btn-success" style="width:100%; justify-content:center; margin-top:8px;" @click="runAutoInstall" :disabled="isInstalling">
-                        {{ isInstalling ? '⏳ Установка...' : '⚡ Начать установку' }}
+                        {{ isInstalling ? '⏳ Устанавливаю (~3-5 мин)...' : '⚡ Начать установку' }}
                     </button>
+                    <div v-if="isInstalling" style="margin-top:12px; padding:12px; background:rgba(0,0,0,0.3); border-radius:8px; font-size:12px; color:var(--text-muted); font-family:monospace;">
+                        Установка AmneziaWG на зарубежный сервер...<br>
+                        Следите за логами на дашборде.
+                    </div>
                 </div>
 
                 <div v-else>
@@ -609,7 +653,7 @@
     </div>
 
     <script>
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
         createApp({
             setup() {
                 const currentTab = ref('dashboard');
@@ -617,7 +661,10 @@
                 const logs = ref([]);
                 const servers = ref([]);
                 const clients = ref([]);
-                
+                const singboxRunning = ref(false);
+                const dashLogEl = ref(null);
+                const topoLogEl = ref(null);
+
                 const showAddServer = ref(false);
                 const installMode = ref('auto');
                 const isInstalling = ref(false);
@@ -626,21 +673,58 @@
                 const currentConfigText = ref('');
                 const newClientName = ref('');
 
-                const newServer = ref({ name:'', ip:'', port:51820, local_address:'10.0.0.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5, ssh_port:22, ssh_user:'root', ssh_password:'', ssh_key_path:'' });
+                const newServer = ref({ name:'', ip:'', port:51820, local_address:'10.66.66.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5, ssh_port:22, ssh_user:'root', ssh_password:'', ssh_key_path:'' });
                 const autoInstallData = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
+
+                // Стриппинг ANSI escape-кодов
+                const stripAnsi = (str) => str.replace(/\x1B\[[0-9;]*[mGKH]/g, '').replace(/\[\d+m/g, '');
+
+                // Класс строки лога
+                const logClass = (line) => {
+                    const s = stripAnsi(line).toUpperCase();
+                    if (s.includes('FATAL') || s.includes('PANIC')) return 'fatal';
+                    if (s.includes('ERROR') || s.includes('FAILURE')) return 'error';
+                    if (s.includes('WARNING') || s.includes('WARN')) return 'warning';
+                    if (s.includes('SWITCH EVENT')) return 'switch';
+                    if (s.includes('--- PANEL ---') || s.startsWith('202') && s.includes('INFO')) return 'panel';
+                    if (s.includes('---')) return 'separator';
+                    return 'info';
+                };
+
+                const hasFatalLog = computed(() =>
+                    logs.value.some(l => { const s = stripAnsi(l).toUpperCase(); return s.includes('FATAL') || s.includes('PANIC'); })
+                );
 
                 const getOrchestratorStat = (name, field) => {
                     const cache = status.value.orchestrator_cache || {};
                     return cache[name] ? cache[name][field] : null;
                 };
 
+                const scrollLogsToBottom = () => {
+                    nextTick(() => {
+                        if (dashLogEl.value) dashLogEl.value.scrollTop = dashLogEl.value.scrollHeight;
+                        if (topoLogEl.value) topoLogEl.value.scrollTop = topoLogEl.value.scrollHeight;
+                    });
+                };
+
                 const fetchStatus = async () => {
-                    try { const res = await fetch('/api/status'); status.value = await res.json(); } catch (e) {}
+                    try {
+                        const res = await fetch('/api/status');
+                        const data = await res.json();
+                        status.value = data;
+                        singboxRunning.value = !data.error;
+                    } catch (e) { singboxRunning.value = false; }
                 };
+
                 const fetchLogs = async () => {
-                    if (currentTab.value !== 'topology') return;
-                    try { const res = await fetch('/api/logs'); const data = await res.json(); logs.value = data.logs; } catch (e) {}
+                    try {
+                        const res = await fetch('/api/logs');
+                        const data = await res.json();
+                        logs.value = data.logs || [];
+                        scrollLogsToBottom();
+                    } catch (e) {}
                 };
+
                 const fetchServers = async () => {
                     try { const res = await fetch('/api/servers'); servers.value = await res.json(); } catch (e) {}
                 };
@@ -653,16 +737,28 @@
                     showAddServer.value = false;
                     fetchServers();
                 };
+
                 const runAutoInstall = async () => {
                     isInstalling.value = true;
                     try {
-                        const res = await fetch('/api/servers/auto-install', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(autoInstallData.value) });
+                        const res = await fetch('/api/servers/auto-install', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify(autoInstallData.value)
+                        });
                         const data = await res.json();
-                        if (res.ok) { alert('✅ ' + data.message); showAddServer.value = false; fetchServers(); }
-                        else { alert('❌ ' + (data.detail || 'Ошибка')); }
-                    } catch(e) { alert('❌ Ошибка сети'); }
+                        if (res.ok) {
+                            alert('✅ ' + data.message);
+                            showAddServer.value = false;
+                            fetchServers();
+                            fetchLogs();
+                        } else {
+                            alert('❌ ' + (data.detail || 'Ошибка установки'));
+                        }
+                    } catch(e) { alert('❌ Ошибка сети: ' + e.message); }
                     isInstalling.value = false;
                 };
+
                 const deleteServer = async (name) => {
                     if (!confirm('Удалить сервер ' + name + '?')) return;
                     await fetch('/api/servers/' + name, { method:'DELETE' });
@@ -692,16 +788,19 @@
                 };
 
                 onMounted(() => {
-                    fetchStatus(); fetchServers(); fetchClients();
+                    fetchStatus(); fetchServers(); fetchClients(); fetchLogs();
                     setInterval(fetchStatus, 5000);
                     setInterval(fetchLogs, 3000);
                 });
 
                 return {
-                    currentTab, status, logs, servers, clients,
-                    showAddServer, installMode, isInstalling, newServer, autoInstallData, addServer, runAutoInstall, deleteServer, fetchStatus, getOrchestratorStat,
+                    currentTab, status, logs, servers, clients, singboxRunning,
+                    dashLogEl, topoLogEl, hasFatalLog,
+                    showAddServer, installMode, isInstalling, newServer, autoInstallData,
+                    addServer, runAutoInstall, deleteServer, fetchStatus, fetchLogs, getOrchestratorStat,
                     showAddClient, newClientName, createClient, deleteClient,
-                    showConfigModal, currentConfigText, viewConfig, copyConfig
+                    showConfigModal, currentConfigText, viewConfig, copyConfig,
+                    stripAnsi, logClass
                 };
             }
         }).mount('#app');
