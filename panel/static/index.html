@@ -3,807 +3,804 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart VPN — Панель управления</title>
+    <title>Smart VPN Panel</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
-            --bg-primary: #0b0f1a;
-            --bg-card: rgba(15, 23, 42, 0.8);
-            --bg-card-hover: rgba(20, 30, 55, 0.9);
+            --bg: #0b0f1a;
+            --card: rgba(15, 23, 42, 0.85);
             --border: rgba(99, 102, 241, 0.15);
-            --border-hover: rgba(99, 102, 241, 0.4);
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --border-h: rgba(99, 102, 241, 0.4);
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --sub: #94a3b8;
             --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.3);
             --green: #10b981;
-            --green-glow: rgba(16, 185, 129, 0.3);
             --red: #ef4444;
-            --red-glow: rgba(239, 68, 68, 0.2);
             --yellow: #f59e0b;
-            --radius: 16px;
+            --r: 14px;
         }
+
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            overflow-x: hidden;
         }
+
         body::before {
             content: '';
             position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-                        radial-gradient(ellipse at 70% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
-            z-index: -1;
-            animation: bgShift 20s ease-in-out infinite alternate;
-        }
-        @keyframes bgShift {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(-5%, -3%); }
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(99,102,241,0.07) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(16,185,129,0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        #app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 20px; }
 
-        /* Header */
+        /* ── Header ── */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 28px;
-            background: var(--bg-card);
+            padding: 16px 24px;
+            background: var(--card);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            margin-bottom: 24px;
+            border-radius: var(--r);
+            margin-bottom: 20px;
             backdrop-filter: blur(20px);
         }
-        .header-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .header-logo .logo-icon {
-            width: 40px;
-            height: 40px;
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-icon {
+            width: 38px; height: 38px;
             background: linear-gradient(135deg, var(--accent), var(--green));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
         }
-        .header-logo h1 {
-            font-size: 20px;
-            font-weight: 700;
+        .logo h1 {
+            font-size: 18px; font-weight: 700;
             background: linear-gradient(135deg, #818cf8, #34d399);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
-        .nav-tabs {
-            display: flex;
-            gap: 4px;
+        .nav {
+            display: flex; gap: 4px;
             background: rgba(0,0,0,0.3);
-            padding: 4px;
-            border-radius: 12px;
+            padding: 4px; border-radius: 10px;
         }
-        .nav-tab {
-            padding: 10px 20px;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 500;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        .nav-btn {
+            padding: 8px 18px; border: none; background: transparent;
+            color: var(--sub); font-family: inherit; font-size: 13px;
+            font-weight: 500; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s;
         }
-        .nav-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
-        .nav-tab.active {
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 4px 15px var(--accent-glow);
-        }
+        .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-btn.active { background: var(--accent); color: #fff; }
 
-        /* Cards */
+        /* ── Cards ── */
         .card {
-            background: var(--bg-card);
+            background: var(--card);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 24px;
+            border-radius: var(--r);
+            padding: 20px;
             backdrop-filter: blur(20px);
-            transition: all 0.3s ease;
-        }
-        .card:hover { border-color: var(--border-hover); }
-        .card-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 24px;
-            backdrop-filter: blur(20px);
-            transition: all 0.3s ease;
-        }
-        .stat-card:hover { transform: translateY(-2px); border-color: var(--border-hover); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
-        .stat-label { font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .stat-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
-        .stat-value.accent { color: var(--accent); }
-        .stat-value.green { color: var(--green); }
-        .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-
-        /* Topology */
-        .topo-flow {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0;
-            padding: 16px 0;
-            overflow-x: auto;
-        }
-        .topo-node {
-            background: var(--bg-card);
-            border: 2px solid var(--border);
-            border-radius: 14px;
-            padding: 16px 20px;
-            min-width: 140px;
-            text-align: center;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-        }
-        .topo-node.active { border-color: var(--green); box-shadow: 0 0 25px var(--green-glow); }
-        .topo-node.accent-node { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
-        .topo-node-icon { font-size: 28px; margin-bottom: 6px; }
-        .topo-node-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .topo-node-name { font-size: 14px; font-weight: 700; }
-        .topo-node-detail { font-size: 10px; color: var(--text-muted); margin-top: 6px; font-family: 'SF Mono', monospace; background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 6px; }
-        .topo-arrow {
-            color: var(--text-muted);
-            font-size: 20px;
-            flex-shrink: 0;
-            padding: 0 4px;
-            animation: pulseArrow 2s ease-in-out infinite;
-        }
-        .topo-arrow.active-arrow { color: var(--green); }
-        @keyframes pulseArrow { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-
-        /* Console */
-        .console-wrap {
-            background: #0a0a0f;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            margin-top: 20px;
-        }
-        .console-titlebar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: rgba(255,255,255,0.03);
-            border-bottom: 1px solid var(--border);
-        }
-        .console-dots { display: flex; gap: 6px; }
-        .console-dots span { width: 10px; height: 10px; border-radius: 50%; }
-        .console-dots .r { background: #ef4444; }
-        .console-dots .y { background: #f59e0b; }
-        .console-dots .g { background: #10b981; }
-        .console-title { font-size: 12px; color: var(--text-muted); font-family: 'SF Mono', monospace; }
-        .console-actions { display: flex; gap: 8px; align-items: center; }
-        .console-badge {
-            font-size: 10px; font-weight: 600; padding: 2px 8px;
-            border-radius: 20px; font-family: 'SF Mono', monospace;
-        }
-        .console-badge.live { background: rgba(16,185,129,0.2); color: #10b981; }
-        .console-badge.error { background: rgba(239,68,68,0.2); color: #ef4444; }
-        .console-body {
-            height: 320px;
-            overflow-y: auto;
-            padding: 12px 16px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 11.5px;
-            line-height: 1.7;
-            color: #4ade80;
-        }
-        .console-body::-webkit-scrollbar { width: 6px; }
-        .console-body::-webkit-scrollbar-track { background: transparent; }
-        .console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-        .log-line { padding: 1px 0; border-bottom: 1px solid rgba(255,255,255,0.02); word-break: break-all; }
-        .log-line.fatal { color: #ff4444; font-weight: 700; background: rgba(255,0,0,0.07); padding: 2px 4px; border-radius: 3px; }
-        .log-line.error { color: #f87171; }
-        .log-line.warning { color: #fbbf24; }
-        .log-line.info { color: #4ade80; }
-        .log-line.switch { color: #60a5fa; font-weight: 600; }
-        .log-line.panel { color: #a78bfa; }
-        .log-line.separator { color: #374151; border-bottom: none; padding: 4px 0; }
-        .log-empty { color: var(--text-muted); text-align: center; padding-top: 80px; }
-        .singbox-status {
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 12px; font-weight: 600;
-            padding: 4px 12px; border-radius: 20px;
-        }
-        .singbox-status.running { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
-        .singbox-status.stopped { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
-        .singbox-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-        /* Server List */
-        .server-list { display: flex; flex-direction: column; gap: 12px; }
-        .server-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            background: rgba(0,0,0,0.2);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            transition: all 0.2s ease;
-        }
-        .server-item:hover { background: rgba(0,0,0,0.3); border-color: var(--border-hover); }
-        .server-info { display: flex; align-items: center; gap: 14px; }
-        .server-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .server-dot.alive { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
-        .server-dot.dead { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
-        .server-dot.unknown { background: var(--text-muted); }
-        .server-name { font-weight: 600; font-size: 14px; }
-        .server-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-        .server-stats { display: flex; gap: 16px; align-items: center; }
-        .server-stat { text-align: right; }
-        .server-stat-val { font-size: 14px; font-weight: 600; }
-        .server-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
-
-        /* Buttons */
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 10px;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:hover { background: #5558e6; box-shadow: 0 4px 20px var(--accent-glow); transform: translateY(-1px); }
-        .btn-success { background: var(--green); color: white; }
-        .btn-success:hover { background: #0ea572; box-shadow: 0 4px 20px var(--green-glow); }
-        .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
-        .btn-danger:hover { background: var(--red-glow); }
-        .btn-sm { padding: 6px 14px; font-size: 12px; }
-
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-        .modal-content {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 32px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
-
-        /* Form */
-        .form-group { margin-bottom: 16px; }
-        .form-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: 14px;
-            outline: none;
             transition: border-color 0.2s;
         }
+        .card:hover { border-color: var(--border-h); }
+        .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+        /* ── Stats grid ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 20px;
+            backdrop-filter: blur(20px);
+            transition: all 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); border-color: var(--border-h); }
+        .stat-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 800; }
+        .stat-value.green { color: var(--green); }
+        .stat-value.accent { color: var(--accent); }
+        .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+        /* Sing-box status badge */
+        .sb-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 13px; font-weight: 600;
+            padding: 6px 14px; border-radius: 20px;
+            margin: 6px 0;
+        }
+        .sb-badge.on  { background: rgba(16,185,129,.15); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
+        .sb-badge.off { background: rgba(239,68,68,.15);  color: var(--red);   border: 1px solid rgba(239,68,68,.3); }
+        .sb-badge .dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation: blink 2s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+        /* ── Server list ── */
+        .srv-list { display: flex; flex-direction: column; gap: 10px; }
+        .srv-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 18px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+        .srv-item:hover { background: rgba(0,0,0,.3); border-color: var(--border-h); }
+        .srv-info { display: flex; align-items: center; gap: 12px; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .dot.on  { background: var(--green); box-shadow: 0 0 8px rgba(16,185,129,.5); }
+        .dot.off { background: var(--red);   box-shadow: 0 0 8px rgba(239,68,68,.4); }
+        .dot.unk { background: var(--muted); }
+        .srv-name { font-weight: 600; font-size: 14px; }
+        .srv-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .srv-stats { display: flex; gap: 20px; align-items: center; }
+        .srv-stat-val { font-size: 14px; font-weight: 600; }
+        .srv-stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+        /* ── Console ── */
+        .console {
+            background: #080c14;
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            overflow: hidden;
+            margin-top: 16px;
+        }
+        .console-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px;
+            background: rgba(255,255,255,.03);
+            border-bottom: 1px solid var(--border);
+        }
+        .console-bar-left { display: flex; align-items: center; gap: 10px; }
+        .dots { display: flex; gap: 5px; }
+        .dots span { width: 9px; height: 9px; border-radius: 50%; }
+        .dots .r { background: #ef4444; }
+        .dots .y { background: #f59e0b; }
+        .dots .g { background: #10b981; }
+        .console-title { font-size: 11px; color: var(--muted); font-family: monospace; }
+        .log-badge {
+            font-size: 10px; font-weight: 700; padding: 2px 8px;
+            border-radius: 20px; font-family: monospace;
+        }
+        .log-badge.live  { background: rgba(16,185,129,.2); color: var(--green); }
+        .log-badge.fatal { background: rgba(239,68,68,.25); color: var(--red); animation: blink 1s infinite; }
+        .refresh-btn {
+            background: none; border: none; color: var(--muted);
+            cursor: pointer; font-size: 15px; padding: 0 4px;
+            transition: color .2s;
+        }
+        .refresh-btn:hover { color: var(--text); }
+        .console-body {
+            height: 300px; overflow-y: auto;
+            padding: 10px 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 11.5px; line-height: 1.65;
+        }
+        .console-body::-webkit-scrollbar { width: 5px; }
+        .console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+        .log { padding: 1px 0; word-break: break-all; }
+        .log.fatal   { color: #ff3333; font-weight: 700; background: rgba(255,0,0,.08); padding: 1px 4px; border-radius: 3px; }
+        .log.error   { color: #f87171; }
+        .log.warning { color: #fbbf24; }
+        .log.switch  { color: #60a5fa; font-weight: 600; }
+        .log.info    { color: #4ade80; }
+        .log.panel   { color: #a78bfa; }
+        .log.sep     { color: #1e293b; }
+        .log-empty   { color: var(--muted); text-align: center; padding: 60px 0; }
+
+        /* ── Topology ── */
+        .topo {
+            display: flex; align-items: center; justify-content: center;
+            gap: 0; padding: 20px 0; overflow-x: auto; flex-wrap: nowrap;
+        }
+        .topo-node {
+            flex-shrink: 0;
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            min-width: 120px; text-align: center;
+            transition: all .3s;
+        }
+        .topo-node.accent { border-color: var(--accent); box-shadow: 0 0 20px rgba(99,102,241,.2); }
+        .topo-node.active { border-color: var(--green); box-shadow: 0 0 25px rgba(16,185,129,.25); }
+        .topo-icon { font-size: 26px; margin-bottom: 4px; }
+        .topo-lbl  { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
+        .topo-name { font-size: 13px; font-weight: 700; }
+        .topo-detail { font-size: 10px; color: var(--muted); margin-top: 5px; font-family: monospace; background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        .arrow { color: var(--muted); font-size: 18px; flex-shrink: 0; padding: 0 6px; animation: arrowPulse 2s ease-in-out infinite; }
+        .arrow.active { color: var(--green); }
+        @keyframes arrowPulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 9px 18px; border: none; border-radius: 9px;
+            font-family: inherit; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: #5558e6; transform: translateY(-1px); }
+        .btn-success { background: var(--green); color: #fff; }
+        .btn-success:hover { background: #0ea572; transform: translateY(-1px); }
+        .btn-danger { background: transparent; color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+        .btn-danger:hover { background: rgba(239,68,68,.1); }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
+
+        /* ── Modal ── */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.7);
+            backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200;
+        }
+        .modal {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 28px;
+            width: 90%; max-width: 480px;
+            max-height: 85vh; overflow-y: auto;
+        }
+        .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 11px; font-weight: 500; color: var(--sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+        .form-input {
+            width: 100%; padding: 10px 14px;
+            background: rgba(0,0,0,.3); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-family: inherit; font-size: 13px; outline: none;
+            transition: border-color .2s;
+        }
         .form-input:focus { border-color: var(--accent); }
-        .form-input::placeholder { color: var(--text-muted); }
+        .form-input::placeholder { color: var(--muted); }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        /* Toggle */
-        .toggle-group { display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 10px; margin-bottom: 20px; }
-        .toggle-btn { flex: 1; padding: 8px; border: none; background: transparent; color: var(--text-muted); font-family: inherit; font-size: 13px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .toggle-btn.active { background: var(--accent); color: white; }
+        /* Install progress */
+        .install-progress {
+            margin-top: 12px; padding: 12px;
+            background: rgba(0,0,0,.3);
+            border: 1px solid rgba(16,185,129,.2);
+            border-radius: 8px;
+            font-family: monospace; font-size: 11px;
+            color: var(--green); line-height: 1.7;
+        }
 
-        .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .mb-6 { margin-bottom: 24px; }
-        .mb-4 { margin-bottom: 16px; }
-        .gap-3 { gap: 12px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        /* Tab toggle */
+        .tab-toggle { display: flex; gap: 4px; background: rgba(0,0,0,.3); padding: 4px; border-radius: 10px; margin-bottom: 18px; }
+        .tab-btn { flex:1; padding:7px; border:none; background:transparent; color:var(--muted); font-family:inherit; font-size:12px; border-radius:7px; cursor:pointer; transition:all .2s; }
+        .tab-btn.active { background: var(--accent); color:#fff; }
 
-        @media (max-width: 768px) {
-            .header { flex-direction: column; gap: 16px; }
-            .topo-flow { flex-direction: column; }
-            .topo-arrow { transform: rotate(90deg); }
+        .row-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 14px; }
+
+        @media (max-width: 700px) {
+            .header { flex-direction: column; gap: 12px; }
             .stats-grid { grid-template-columns: 1fr 1fr; }
-            .grid-2 { grid-template-columns: 1fr; }
-            .nav-tabs { overflow-x: auto; }
+            .grid2 { grid-template-columns: 1fr; }
+            .topo { flex-direction: column; }
+            .arrow { transform: rotate(90deg); }
+            .nav { overflow-x: auto; }
         }
     </style>
 </head>
 <body>
-    <div id="app" class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-logo">
-                <div class="logo-icon">🛡</div>
-                <h1>Smart VPN Panel</h1>
-            </div>
-            <div class="nav-tabs">
-                <button class="nav-tab" :class="{active: currentTab === 'dashboard'}" @click="currentTab = 'dashboard'">Дашборд</button>
-                <button class="nav-tab" :class="{active: currentTab === 'topology'}" @click="currentTab = 'topology'">Топология</button>
-                <button class="nav-tab" :class="{active: currentTab === 'servers'}" @click="currentTab = 'servers'">Серверы</button>
-                <button class="nav-tab" :class="{active: currentTab === 'clients'}" @click="currentTab = 'clients'">Клиенты</button>
-            </div>
-        </header>
+<div id="app">
 
-        <!-- Dashboard -->
-        <div v-if="currentTab === 'dashboard'">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Sing-Box</div>
-                    <div style="margin: 8px 0;">
-                        <span class="singbox-status" :class="singboxRunning ? 'running' : 'stopped'">
-                            <span class="dot"></span>
-                            {{ singboxRunning ? 'Running' : 'Stopped' }}
-                        </span>
-                    </div>
-                    <div class="stat-sub">{{ status.now ? 'Активный: ' + status.now : 'Нет активного outbound' }}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Серверов</div>
-                    <div class="stat-value accent">{{ servers.length }}</div>
-                    <div class="stat-sub">Зарубежных нод</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Клиентов</div>
-                    <div class="stat-value accent">{{ Array.isArray(clients) ? clients.length : 0 }}</div>
-                    <div class="stat-sub">Подключено устройств</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Активный узел</div>
-                    <div class="stat-value green" style="font-size:18px; word-break:break-all;">{{ status.now || '—' }}</div>
-                    <div class="stat-sub">Оркестратор</div>
-                </div>
-            </div>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🛡</div>
+            <h1>Smart VPN Panel</h1>
+        </div>
+        <nav class="nav">
+            <button class="nav-btn" :class="{active: tab==='dash'}"     @click="tab='dash'">Дашборд</button>
+            <button class="nav-btn" :class="{active: tab==='topo'}"     @click="tab='topo'">Топология</button>
+            <button class="nav-btn" :class="{active: tab==='servers'}"  @click="tab='servers'">Серверы</button>
+            <button class="nav-btn" :class="{active: tab==='clients'}"  @click="tab='clients'">Клиенты</button>
+        </nav>
+    </header>
 
-            <div class="card">
-                <div class="card-title">📊 Состояние серверов</div>
-                <div class="server-list">
-                    <div v-for="srv in servers" :key="srv.name" class="server-item">
-                        <div class="server-info">
-                            <div class="server-dot" :class="getOrchestratorStat(srv.name, 'alive') ? 'alive' : (getOrchestratorStat(srv.name, 'alive') === false ? 'dead' : 'unknown')"></div>
-                            <div>
-                                <div class="server-name">{{ srv.name }}</div>
-                                <div class="server-meta">{{ srv.ip }} :{{ srv.port }}</div>
-                            </div>
-                        </div>
-                        <div class="server-stats">
-                            <div class="server-stat">
-                                <div class="server-stat-val">{{ getOrchestratorStat(srv.name, 'gb')?.toFixed(2) || '—' }} GB</div>
-                                <div class="server-stat-label">Трафик</div>
-                            </div>
-                            <div class="server-stat">
-                                <div class="server-stat-val">{{ getOrchestratorStat(srv.name, 'users') ?? '—' }}</div>
-                                <div class="server-stat-label">Юзеров</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-if="servers.length === 0" style="text-align:center; padding:40px; color: var(--text-muted);">
-                        Нет серверов. Добавьте первый во вкладке «Серверы».
-                    </div>
+    <!-- ══════════ DASHBOARD ══════════ -->
+    <div v-show="tab==='dash'">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Sing-Box</div>
+                <div class="sb-badge" :class="sbRunning ? 'on' : 'off'">
+                    <span class="dot"></span>
+                    {{ sbRunning ? 'Running' : 'Stopped' }}
                 </div>
+                <div class="stat-sub">{{ status.now ? 'Узел: ' + status.now : 'Нет активного outbound' }}</div>
             </div>
-
-            <!-- Live Logs on Dashboard -->
-            <div class="console-wrap">
-                <div class="console-titlebar">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div class="console-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
-                        <div class="console-title">📡 Системные логи</div>
-                    </div>
-                    <div class="console-actions">
-                        <span class="console-badge" :class="hasFatalLog ? 'error' : 'live'">{{ hasFatalLog ? '⚠ FATAL' : '● LIVE' }}</span>
-                        <button @click="fetchLogs" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">↻</button>
-                    </div>
-                </div>
-                <div class="console-body" ref="dashLogEl">
-                    <div v-for="(log, idx) in logs" :key="idx" class="log-line" :class="logClass(log)">{{ stripAnsi(log) }}</div>
-                    <div v-if="logs.length === 0" class="log-empty">Ожидание логов...</div>
-                </div>
+            <div class="stat-card">
+                <div class="stat-label">Серверов</div>
+                <div class="stat-value accent">{{ servers.length }}</div>
+                <div class="stat-sub">Зарубежных нод</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Клиентов</div>
+                <div class="stat-value accent">{{ clients.length }}</div>
+                <div class="stat-sub">Активных устройств</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Активный узел</div>
+                <div class="stat-value green" style="font-size:18px; word-break:break-all;">{{ status.now || '—' }}</div>
+                <div class="stat-sub">Оркестратор</div>
             </div>
         </div>
 
-        <!-- Topology Tab -->
-        <div v-if="currentTab === 'topology'">
-            <div class="card mb-6">
-                <div class="card-title">🌐 Маршрут трафика</div>
-                <div class="topo-flow">
-                    <div class="topo-node">
-                        <div class="topo-node-icon">📱</div>
-                        <div class="topo-node-label">Ваши устройства</div>
-                        <div class="topo-node-name">Clients</div>
-                        <div class="topo-node-detail">{{ Array.isArray(clients) ? clients.length : 0 }} active</div>
-                    </div>
-                    <div class="topo-arrow">→</div>
-                    <div class="topo-node accent-node">
-                        <div class="topo-node-icon">🇷🇺</div>
-                        <div class="topo-node-label">Российский VPS</div>
-                        <div class="topo-node-name">AmneziaWG</div>
-                        <div class="topo-node-detail">awg0 → tun0</div>
-                    </div>
-                    <div class="topo-arrow">→</div>
-                    <div class="topo-node accent-node">
-                        <div class="topo-node-icon">⚡</div>
-                        <div class="topo-node-label">Маршрутизатор</div>
-                        <div class="topo-node-name">Sing-Box</div>
-                        <div class="topo-node-detail">ru → direct | * → proxy</div>
-                    </div>
-                    <div class="topo-arrow active-arrow">→</div>
-                    <div class="topo-node active">
-                        <div class="topo-node-icon">🌍</div>
-                        <div class="topo-node-label">Активная нода</div>
-                        <div class="topo-node-name">{{ status.now || 'None' }}</div>
-                        <div class="topo-node-detail">Оркестратор</div>
-                    </div>
-                     <div class="console-wrap" style="margin-top:0;">
-                <div class="console-titlebar">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div class="console-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
-                        <div class="console-title">📡 Live Logs — Sing-Box &amp; Orchestrator</div>
-                    </div>
-                    <div class="console-actions">
-                        <span class="console-badge" :class="hasFatalLog ? 'error' : 'live'">{{ hasFatalLog ? '⚠ FATAL' : '● LIVE' }}</span>
-                        <button @click="fetchLogs" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">↻</button>
-                    </div>
-                </div>
-                <div class="console-body" ref="topoLogEl">
-                    <div v-for="(log, idx) in logs" :key="idx" class="log-line" :class="logClass(log)">{{ stripAnsi(log) }}</div>
-                    <div v-if="logs.length === 0" class="log-empty">Ожидание логов...</div>
-                </div>
-            </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Servers Tab -->
-        <div v-if="currentTab === 'servers'">
-            <div class="flex-between mb-6">
-                <h2 style="font-size:20px; font-weight:700;">Серверы</h2>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn btn-success" @click="showAddServer = true; installMode = 'auto'">⚡ Авто-установка</button>
-                    <button class="btn btn-primary" @click="showAddServer = true; installMode = 'manual'">+ Вручную</button>
-                </div>
-            </div>
-            <div class="server-list">
-                <div v-for="srv in servers" :key="srv.name" class="server-item">
-                    <div class="server-info">
-                        <div class="server-dot" :class="getOrchestratorStat(srv.name, 'alive') ? 'alive' : (getOrchestratorStat(srv.name, 'alive') === false ? 'dead' : 'unknown')"></div>
+        <!-- Server status list -->
+        <div class="card" style="margin-bottom:0;">
+            <div class="card-title">📊 Состояние серверов</div>
+            <div class="srv-list">
+                <div v-for="s in servers" :key="s.name" class="srv-item">
+                    <div class="srv-info">
+                        <div class="dot" :class="orchStat(s.name,'alive')===true ? 'on' : orchStat(s.name,'alive')===false ? 'off' : 'unk'"></div>
                         <div>
-                            <div class="server-name">{{ srv.name }}</div>
-                            <div class="server-meta">{{ srv.ip }} :{{ srv.port }} • {{ srv.wg_interface || 'awg0' }}</div>
+                            <div class="srv-name">{{ s.name }}</div>
+                            <div class="srv-meta">{{ s.ip }}:{{ s.port }}</div>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:16px;">
-                        <div class="server-stats">
-                            <div class="server-stat">
-                                <div class="server-stat-val">{{ srv.limit_gb }} GB</div>
-                                <div class="server-stat-label">Лимит</div>
-                            </div>
-                            <div class="server-stat">
-                                <div class="server-stat-val">{{ srv.limit_users }}</div>
-                                <div class="server-stat-label">Макс. юзеров</div>
-                            </div>
+                    <div class="srv-stats">
+                        <div style="text-align:right;">
+                            <div class="srv-stat-val">{{ orchStat(s.name,'gb') != null ? orchStat(s.name,'gb').toFixed(2)+' GB' : '—' }}</div>
+                            <div class="srv-stat-lbl">Трафик</div>
                         </div>
-                        <button class="btn btn-danger btn-sm" @click="deleteServer(srv.name)">✕</button>
+                        <div style="text-align:right;">
+                            <div class="srv-stat-val">{{ orchStat(s.name,'users') != null ? orchStat(s.name,'users') : '—' }}</div>
+                            <div class="srv-stat-lbl">Юзеров</div>
+                        </div>
                     </div>
                 </div>
-                <div v-if="servers.length === 0" style="text-align:center; padding:60px; color: var(--text-muted);">
-                    Серверов пока нет. Нажмите «⚡ Авто-установка», чтобы добавить зарубежную ноду.
-                </div>
+                <div v-if="servers.length===0" class="empty">Нет серверов. Добавьте во вкладке «Серверы».</div>
             </div>
         </div>
 
-        <!-- Clients Tab -->
-        <div v-if="currentTab === 'clients'">
-            <div class="flex-between mb-6">
-                <h2 style="font-size:20px; font-weight:700;">Клиенты</h2>
-                <button class="btn btn-primary" @click="showAddClient = true">+ Создать клиента</button>
-            </div>
-            <div class="server-list">
-                <div v-for="cl in (Array.isArray(clients) ? clients : [])" :key="cl.id || cl.name" class="server-item">
-                    <div class="server-info">
-                        <div class="server-dot alive"></div>
-                        <div>
-                            <div class="server-name">{{ cl.name || cl.id }}</div>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-primary btn-sm" @click="viewConfig(cl.id || cl.name)">📋 Конфиг</button>
-                        <button class="btn btn-danger btn-sm" @click="deleteClient(cl.id || cl.name)">✕</button>
-                    </div>
+        <!-- Live logs -->
+        <div class="console">
+            <div class="console-bar">
+                <div class="console-bar-left">
+                    <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+                    <span class="console-title">📡 Системные логи</span>
                 </div>
-                <div v-if="!Array.isArray(clients) || clients.length === 0" style="text-align:center; padding:60px; color: var(--text-muted);">
-                    Клиентов пока нет. Создайте первого!
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="log-badge" :class="hasFatal ? 'fatal' : 'live'">{{ hasFatal ? '⚠ FATAL' : '● LIVE' }}</span>
+                    <button class="refresh-btn" @click="fetchLogs">↻</button>
                 </div>
             </div>
-        </div>
-
-        <!-- Add Server Modal -->
-        <div v-if="showAddServer" class="modal-overlay" @click.self="showAddServer = false">
-            <div class="modal-content">
-                <div class="modal-title">{{ installMode === 'auto' ? '⚡ Авто-установка сервера' : '+ Добавить сервер вручную' }}</div>
-
-                <div v-if="installMode === 'auto'">
-                    <div class="form-group">
-                        <label class="form-label">Название ноды</label>
-                        <input class="form-input" v-model="autoInstallData.name" placeholder="Germany-1">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">IP-адрес сервера</label>
-                        <input class="form-input" v-model="autoInstallData.ip" placeholder="185.x.x.x">
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label class="form-label">SSH Порт</label>
-                            <input class="form-input" v-model.number="autoInstallData.ssh_port" type="number">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">SSH Логин</label>
-                            <input class="form-input" v-model="autoInstallData.ssh_user" placeholder="root">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">SSH Пароль</label>
-                        <input class="form-input" v-model="autoInstallData.ssh_password" type="password" placeholder="••••••••">
-                    </div>
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label class="form-label">Лимит трафика (GB)</label>
-                            <input class="form-input" v-model.number="autoInstallData.limit_gb" type="number">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Макс. юзеров</label>
-                            <input class="form-input" v-model.number="autoInstallData.limit_users" type="number">
-                        </div>
-                    </div>
-                    <button class="btn btn-success" style="width:100%; justify-content:center; margin-top:8px;" @click="runAutoInstall" :disabled="isInstalling">
-                        {{ isInstalling ? '⏳ Устанавливаю (~3-5 мин)...' : '⚡ Начать установку' }}
-                    </button>
-                    <div v-if="isInstalling" style="margin-top:12px; padding:12px; background:rgba(0,0,0,0.3); border-radius:8px; font-size:12px; color:var(--text-muted); font-family:monospace;">
-                        Установка AmneziaWG на зарубежный сервер...<br>
-                        Следите за логами на дашборде.
-                    </div>
-                </div>
-
-                <div v-else>
-                    <div class="form-group"><label class="form-label">Название</label><input class="form-input" v-model="newServer.name" placeholder="NL-Exit-1"></div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">IP</label><input class="form-input" v-model="newServer.ip" placeholder="1.2.3.4"></div>
-                        <div class="form-group"><label class="form-label">Порт</label><input class="form-input" v-model.number="newServer.port" type="number"></div>
-                    </div>
-                    <div class="form-group"><label class="form-label">Local Address</label><input class="form-input" v-model="newServer.local_address" placeholder="10.0.0.2/32"></div>
-                    <div class="form-group"><label class="form-label">Private Key</label><input class="form-input" v-model="newServer.private_key"></div>
-                    <div class="form-group"><label class="form-label">Peer Public Key</label><input class="form-input" v-model="newServer.peer_public_key"></div>
-                    <div class="grid-2">
-                        <div class="form-group"><label class="form-label">Лимит GB</label><input class="form-input" v-model.number="newServer.limit_gb" type="number"></div>
-                        <div class="form-group"><label class="form-label">Макс. юзеров</label><input class="form-input" v-model.number="newServer.limit_users" type="number"></div>
-                    </div>
-                    <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:8px;" @click="addServer">Добавить сервер</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Client Modal -->
-        <div v-if="showAddClient" class="modal-overlay" @click.self="showAddClient = false">
-            <div class="modal-content">
-                <div class="modal-title">+ Создать клиента</div>
-                <div class="form-group">
-                    <label class="form-label">Имя клиента</label>
-                    <input class="form-input" v-model="newClientName" placeholder="Мой iPhone">
-                </div>
-                <button class="btn btn-primary" style="width:100%; justify-content:center;" @click="createClient">Создать</button>
-            </div>
-        </div>
-
-        <!-- Config Modal -->
-        <div v-if="showConfigModal" class="modal-overlay" @click.self="showConfigModal = false">
-            <div class="modal-content">
-                <div class="modal-title">📋 Конфигурация клиента</div>
-                <pre style="background:rgba(0,0,0,0.4); padding:16px; border-radius:10px; font-size:11px; overflow-x:auto; color:#4ade80; white-space:pre-wrap; word-break:break-all;">{{ currentConfigText }}</pre>
-                <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:16px;" @click="copyConfig">📋 Скопировать</button>
+            <div class="console-body" ref="logEl">
+                <div v-for="(l,i) in logs" :key="i" class="log" :class="logClass(l)">{{ stripAnsi(l) }}</div>
+                <div v-if="!logs.length" class="log-empty">Ожидание логов...</div>
             </div>
         </div>
     </div>
 
-    <script>
-        const { createApp, ref, computed, watch, nextTick, onMounted } = Vue;
-        createApp({
-            setup() {
-                const currentTab = ref('dashboard');
-                const status = ref({ orchestrator_cache: {} });
-                const logs = ref([]);
-                const servers = ref([]);
-                const clients = ref([]);
-                const singboxRunning = ref(false);
-                const dashLogEl = ref(null);
-                const topoLogEl = ref(null);
+    <!-- ══════════ TOPOLOGY ══════════ -->
+    <div v-show="tab==='topo'">
+        <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">🌐 Маршрут трафика</div>
+            <div class="topo">
+                <div class="topo-node">
+                    <div class="topo-icon">📱</div>
+                    <div class="topo-lbl">Устройства</div>
+                    <div class="topo-name">Clients</div>
+                    <div class="topo-detail">{{ clients.length }} active</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="topo-node accent">
+                    <div class="topo-icon">🇷🇺</div>
+                    <div class="topo-lbl">Российский VPS</div>
+                    <div class="topo-name">Sing-Box</div>
+                    <div class="topo-detail">tun0</div>
+                </div>
+                <div class="arrow active">→</div>
+                <div class="topo-node active">
+                    <div class="topo-icon">🌍</div>
+                    <div class="topo-lbl">Активная нода</div>
+                    <div class="topo-name">{{ status.now || 'None' }}</div>
+                    <div class="topo-detail">AmneziaWG</div>
+                </div>
+                <div class="arrow active">→</div>
+                <div class="topo-node">
+                    <div class="topo-icon">🌐</div>
+                    <div class="topo-lbl">Интернет</div>
+                    <div class="topo-name">Internet</div>
+                    <div class="topo-detail">unrestricted</div>
+                </div>
+            </div>
+        </div>
 
-                const showAddServer = ref(false);
-                const installMode = ref('auto');
-                const isInstalling = ref(false);
-                const showAddClient = ref(false);
-                const showConfigModal = ref(false);
-                const currentConfigText = ref('');
-                const newClientName = ref('');
+        <div class="console">
+            <div class="console-bar">
+                <div class="console-bar-left">
+                    <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+                    <span class="console-title">📡 Live Logs — Sing-Box &amp; Orchestrator</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="log-badge" :class="hasFatal ? 'fatal' : 'live'">{{ hasFatal ? '⚠ FATAL' : '● LIVE' }}</span>
+                    <button class="refresh-btn" @click="fetchLogs">↻</button>
+                </div>
+            </div>
+            <div class="console-body" ref="logEl2">
+                <div v-for="(l,i) in logs" :key="i" class="log" :class="logClass(l)">{{ stripAnsi(l) }}</div>
+                <div v-if="!logs.length" class="log-empty">Ожидание логов...</div>
+            </div>
+        </div>
+    </div>
 
-                const newServer = ref({ name:'', ip:'', port:51820, local_address:'10.66.66.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5, ssh_port:22, ssh_user:'root', ssh_password:'', ssh_key_path:'' });
-                const autoInstallData = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
+    <!-- ══════════ SERVERS ══════════ -->
+    <div v-show="tab==='servers'">
+        <div class="row-between">
+            <h2 style="font-size:18px;font-weight:700;">Серверы</h2>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-success" @click="openModal('auto')">⚡ Авто-установка</button>
+                <button class="btn btn-primary"  @click="openModal('manual')">+ Вручную</button>
+            </div>
+        </div>
+        <div class="srv-list">
+            <div v-for="s in servers" :key="s.name" class="srv-item">
+                <div class="srv-info">
+                    <div class="dot" :class="orchStat(s.name,'alive')===true ? 'on' : orchStat(s.name,'alive')===false ? 'off' : 'unk'"></div>
+                    <div>
+                        <div class="srv-name">{{ s.name }}</div>
+                        <div class="srv-meta">{{ s.ip }}:{{ s.port }} • {{ s.wg_interface||'awg0' }}</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <div style="text-align:right;">
+                        <div class="srv-stat-val">{{ s.limit_gb }} GB</div>
+                        <div class="srv-stat-lbl">Лимит</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="srv-stat-val">{{ s.limit_users }}</div>
+                        <div class="srv-stat-lbl">Юзеров</div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" @click="delServer(s.name)">✕</button>
+                </div>
+            </div>
+            <div v-if="servers.length===0" class="empty">Нет серверов. Нажмите «⚡ Авто-установка».</div>
+        </div>
+    </div>
 
-                // Стриппинг ANSI escape-кодов
-                const stripAnsi = (str) => str.replace(/\x1B\[[0-9;]*[mGKH]/g, '').replace(/\[\d+m/g, '');
+    <!-- ══════════ CLIENTS ══════════ -->
+    <div v-show="tab==='clients'">
+        <div class="row-between">
+            <h2 style="font-size:18px;font-weight:700;">Клиенты</h2>
+            <button class="btn btn-primary" @click="showAddClient=true">+ Создать</button>
+        </div>
+        <div class="srv-list">
+            <div v-for="c in clients" :key="c.id||c.name" class="srv-item">
+                <div class="srv-info">
+                    <div class="dot on"></div>
+                    <div class="srv-name">{{ c.name||c.id }}</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary btn-sm" @click="viewCfg(c.id||c.name)">📋 Конфиг</button>
+                    <button class="btn btn-danger btn-sm"  @click="delClient(c.id||c.name)">✕</button>
+                </div>
+            </div>
+            <div v-if="clients.length===0" class="empty">Клиентов нет. Создайте первого!</div>
+        </div>
+    </div>
 
-                // Класс строки лога
-                const logClass = (line) => {
-                    const s = stripAnsi(line).toUpperCase();
-                    if (s.includes('FATAL') || s.includes('PANIC')) return 'fatal';
-                    if (s.includes('ERROR') || s.includes('FAILURE')) return 'error';
-                    if (s.includes('WARNING') || s.includes('WARN')) return 'warning';
-                    if (s.includes('SWITCH EVENT')) return 'switch';
-                    if (s.includes('--- PANEL ---') || s.startsWith('202') && s.includes('INFO')) return 'panel';
-                    if (s.includes('---')) return 'separator';
-                    return 'info';
-                };
+    <!-- ══════════ MODAL: Add server ══════════ -->
+    <div v-if="showModal" class="overlay" @click.self="showModal=false">
+        <div class="modal">
+            <div class="modal-title">{{ modalMode==='auto' ? '⚡ Авто-установка сервера' : '+ Добавить сервер вручную' }}</div>
 
-                const hasFatalLog = computed(() =>
-                    logs.value.some(l => { const s = stripAnsi(l).toUpperCase(); return s.includes('FATAL') || s.includes('PANIC'); })
-                );
+            <div class="tab-toggle">
+                <button class="tab-btn" :class="{active:modalMode==='auto'}"   @click="modalMode='auto'">Авто</button>
+                <button class="tab-btn" :class="{active:modalMode==='manual'}" @click="modalMode='manual'">Вручную</button>
+            </div>
 
-                const getOrchestratorStat = (name, field) => {
-                    const cache = status.value.orchestrator_cache || {};
-                    return cache[name] ? cache[name][field] : null;
-                };
+            <!-- AUTO -->
+            <div v-if="modalMode==='auto'">
+                <div class="form-group">
+                    <label class="form-label">Название ноды</label>
+                    <input class="form-input" v-model="autoForm.name" placeholder="Germany-1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">IP-адрес сервера</label>
+                    <input class="form-input" v-model="autoForm.ip" placeholder="185.x.x.x">
+                </div>
+                <div class="grid2">
+                    <div class="form-group">
+                        <label class="form-label">SSH Порт</label>
+                        <input class="form-input" v-model.number="autoForm.ssh_port" type="number">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SSH Логин</label>
+                        <input class="form-input" v-model="autoForm.ssh_user" placeholder="root">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">SSH Пароль</label>
+                    <input class="form-input" v-model="autoForm.ssh_password" type="password" placeholder="••••••••">
+                </div>
+                <div class="grid2">
+                    <div class="form-group">
+                        <label class="form-label">Лимит трафика (GB)</label>
+                        <input class="form-input" v-model.number="autoForm.limit_gb" type="number">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Макс. юзеров</label>
+                        <input class="form-input" v-model.number="autoForm.limit_users" type="number">
+                    </div>
+                </div>
+                <button class="btn btn-success" style="width:100%;justify-content:center;margin-top:4px;" @click="runAutoInstall" :disabled="installing">
+                    {{ installing ? '⏳ Установка (~3-5 мин)...' : '⚡ Начать установку' }}
+                </button>
+                <div v-if="installing" class="install-progress">
+                    ▶ Подключаемся к {{ autoForm.ip }}...<br>
+                    ▶ Устанавливаем AmneziaWG (PPA)...<br>
+                    ▶ Генерируем ключи...<br>
+                    ▶ Запускаем awg-quick@awg0...<br>
+                    <br>Следите за логами на дашборде.
+                </div>
+            </div>
 
-                const scrollLogsToBottom = () => {
-                    nextTick(() => {
-                        if (dashLogEl.value) dashLogEl.value.scrollTop = dashLogEl.value.scrollHeight;
-                        if (topoLogEl.value) topoLogEl.value.scrollTop = topoLogEl.value.scrollHeight;
-                    });
-                };
+            <!-- MANUAL -->
+            <div v-if="modalMode==='manual'">
+                <div class="form-group">
+                    <label class="form-label">Название</label>
+                    <input class="form-input" v-model="manForm.name" placeholder="NL-Exit-1">
+                </div>
+                <div class="grid2">
+                    <div class="form-group">
+                        <label class="form-label">IP</label>
+                        <input class="form-input" v-model="manForm.ip" placeholder="1.2.3.4">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Порт AWG</label>
+                        <input class="form-input" v-model.number="manForm.port" type="number">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Local Address (клиентский)</label>
+                    <input class="form-input" v-model="manForm.local_address" placeholder="10.66.66.2/32">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Private Key (клиентский)</label>
+                    <input class="form-input" v-model="manForm.private_key">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Peer Public Key (серверный)</label>
+                    <input class="form-input" v-model="manForm.peer_public_key">
+                </div>
+                <div class="grid2">
+                    <div class="form-group">
+                        <label class="form-label">Лимит GB</label>
+                        <input class="form-input" v-model.number="manForm.limit_gb" type="number">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Макс. юзеров</label>
+                        <input class="form-input" v-model.number="manForm.limit_users" type="number">
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px;" @click="addManual">Добавить сервер</button>
+            </div>
+        </div>
+    </div>
 
-                const fetchStatus = async () => {
-                    try {
-                        const res = await fetch('/api/status');
-                        const data = await res.json();
-                        status.value = data;
-                        singboxRunning.value = !data.error;
-                    } catch (e) { singboxRunning.value = false; }
-                };
+    <!-- ══════════ MODAL: Add client ══════════ -->
+    <div v-if="showAddClient" class="overlay" @click.self="showAddClient=false">
+        <div class="modal">
+            <div class="modal-title">+ Создать клиента</div>
+            <div class="form-group">
+                <label class="form-label">Имя клиента</label>
+                <input class="form-input" v-model="newClientName" placeholder="Мой iPhone">
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;" @click="createClient">Создать</button>
+        </div>
+    </div>
 
-                const fetchLogs = async () => {
-                    try {
-                        const res = await fetch('/api/logs');
-                        const data = await res.json();
-                        logs.value = data.logs || [];
-                        scrollLogsToBottom();
-                    } catch (e) {}
-                };
+    <!-- ══════════ MODAL: Config ══════════ -->
+    <div v-if="showCfgModal" class="overlay" @click.self="showCfgModal=false">
+        <div class="modal">
+            <div class="modal-title">📋 Конфигурация клиента</div>
+            <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ cfgText }}</pre>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px;" @click="copyCfg">📋 Скопировать</button>
+        </div>
+    </div>
 
-                const fetchServers = async () => {
-                    try { const res = await fetch('/api/servers'); servers.value = await res.json(); } catch (e) {}
-                };
-                const fetchClients = async () => {
-                    try { const res = await fetch('/api/clients'); const data = await res.json(); clients.value = Array.isArray(data) ? data : []; } catch (e) { clients.value = []; }
-                };
+</div>
 
-                const addServer = async () => {
-                    await fetch('/api/servers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(newServer.value) });
-                    showAddServer.value = false;
-                    fetchServers();
-                };
+<script>
+const { createApp, ref, computed, nextTick, onMounted } = Vue;
 
-                const runAutoInstall = async () => {
-                    isInstalling.value = true;
-                    try {
-                        const res = await fetch('/api/servers/auto-install', {
-                            method: 'POST',
-                            headers: {'Content-Type':'application/json'},
-                            body: JSON.stringify(autoInstallData.value)
-                        });
-                        const data = await res.json();
-                        if (res.ok) {
-                            alert('✅ ' + data.message);
-                            showAddServer.value = false;
-                            fetchServers();
-                            fetchLogs();
-                        } else {
-                            alert('❌ ' + (data.detail || 'Ошибка установки'));
-                        }
-                    } catch(e) { alert('❌ Ошибка сети: ' + e.message); }
-                    isInstalling.value = false;
-                };
+createApp({
+    setup() {
+        const tab = ref('dash');
+        const status = ref({ orchestrator_cache: {} });
+        const logs   = ref([]);
+        const servers = ref([]);
+        const clients = ref([]);
+        const sbRunning = ref(false);
+        const logEl  = ref(null);
+        const logEl2 = ref(null);
 
-                const deleteServer = async (name) => {
-                    if (!confirm('Удалить сервер ' + name + '?')) return;
-                    await fetch('/api/servers/' + name, { method:'DELETE' });
-                    fetchServers();
-                };
+        const showModal     = ref(false);
+        const modalMode     = ref('auto');
+        const installing    = ref(false);
+        const showAddClient = ref(false);
+        const showCfgModal  = ref(false);
+        const cfgText       = ref('');
+        const newClientName = ref('');
 
-                const createClient = async () => {
-                    await fetch('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: newClientName.value}) });
-                    showAddClient.value = false;
-                    newClientName.value = '';
-                    fetchClients();
-                };
-                const deleteClient = async (id) => {
-                    if (!confirm('Удалить клиента?')) return;
-                    await fetch('/api/clients/' + id, { method:'DELETE' });
-                    fetchClients();
-                };
-                const viewConfig = async (id) => {
-                    const res = await fetch('/api/clients/' + id + '/config');
-                    const data = await res.json();
-                    currentConfigText.value = data.config;
-                    showConfigModal.value = true;
-                };
-                const copyConfig = () => {
-                    navigator.clipboard.writeText(currentConfigText.value);
-                    alert('Скопировано!');
-                };
+        const autoForm = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
+        const manForm  = ref({ name:'', ip:'', port:51820, local_address:'10.66.66.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5 });
 
-                onMounted(() => {
-                    fetchStatus(); fetchServers(); fetchClients(); fetchLogs();
-                    setInterval(fetchStatus, 5000);
-                    setInterval(fetchLogs, 3000);
-                });
+        // ── Helpers ──────────────────────────
+        const stripAnsi = s => s.replace(/\x1B\[[0-9;]*[mGKH]/g, '').replace(/\[\d+m/g, '');
 
-                return {
-                    currentTab, status, logs, servers, clients, singboxRunning,
-                    dashLogEl, topoLogEl, hasFatalLog,
-                    showAddServer, installMode, isInstalling, newServer, autoInstallData,
-                    addServer, runAutoInstall, deleteServer, fetchStatus, fetchLogs, getOrchestratorStat,
-                    showAddClient, newClientName, createClient, deleteClient,
-                    showConfigModal, currentConfigText, viewConfig, copyConfig,
-                    stripAnsi, logClass
-                };
+        const logClass = line => {
+            const u = stripAnsi(line).toUpperCase();
+            if (u.includes('FATAL') || u.includes('PANIC'))   return 'fatal';
+            if (u.includes('ERROR') || u.includes('FAILURE')) return 'error';
+            if (u.includes('WARN'))                            return 'warning';
+            if (u.includes('SWITCH EVENT'))                    return 'switch';
+            if (u.includes('--- PANEL ---') || u.includes('--- '))  return 'sep';
+            if (u.includes('INFO'))                            return 'panel';
+            return 'info';
+        };
+
+        const hasFatal = computed(() =>
+            logs.value.some(l => { const u = stripAnsi(l).toUpperCase(); return u.includes('FATAL') || u.includes('PANIC'); })
+        );
+
+        const orchStat = (name, field) => {
+            const c = status.value.orchestrator_cache || {};
+            return c[name] != null ? c[name][field] : null;
+        };
+
+        const scrollLogs = () => nextTick(() => {
+            if (logEl.value)  logEl.value.scrollTop  = logEl.value.scrollHeight;
+            if (logEl2.value) logEl2.value.scrollTop = logEl2.value.scrollHeight;
+        });
+
+        // ── API calls ────────────────────────
+        const fetchStatus = async () => {
+            try {
+                const r = await fetch('/api/status');
+                const d = await r.json();
+                status.value = d;
+                sbRunning.value = !d.error;
+            } catch { sbRunning.value = false; }
+        };
+
+        const fetchLogs = async () => {
+            try {
+                const r = await fetch('/api/logs');
+                const d = await r.json();
+                logs.value = d.logs || [];
+                scrollLogs();
+            } catch {}
+        };
+
+        const fetchServers = async () => {
+            try { const r = await fetch('/api/servers'); servers.value = await r.json(); } catch {}
+        };
+
+        const fetchClients = async () => {
+            try {
+                const r = await fetch('/api/clients');
+                const d = await r.json();
+                clients.value = Array.isArray(d) ? d : [];
+            } catch { clients.value = []; }
+        };
+
+        // ── Server actions ────────────────────
+        const openModal = mode => { modalMode.value = mode; showModal.value = true; };
+
+        const runAutoInstall = async () => {
+            if (!autoForm.value.name || !autoForm.value.ip || !autoForm.value.ssh_password) {
+                alert('Заполните название, IP и SSH пароль!'); return;
             }
-        }).mount('#app');
-    </script>
+            installing.value = true;
+            try {
+                const r = await fetch('/api/servers/auto-install', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(autoForm.value)
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    alert('✅ ' + d.message);
+                    showModal.value = false;
+                    autoForm.value = { name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 };
+                    await fetchServers();
+                    await fetchLogs();
+                } else {
+                    alert('❌ ' + (d.detail || 'Ошибка установки'));
+                }
+            } catch (e) { alert('❌ Ошибка сети: ' + e.message); }
+            installing.value = false;
+        };
+
+        const addManual = async () => {
+            try {
+                await fetch('/api/servers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(manForm.value)
+                });
+                showModal.value = false;
+                await fetchServers();
+            } catch (e) { alert('❌ ' + e.message); }
+        };
+
+        const delServer = async name => {
+            if (!confirm('Удалить сервер ' + name + '?')) return;
+            await fetch('/api/servers/' + encodeURIComponent(name), { method: 'DELETE' });
+            await fetchServers();
+        };
+
+        // ── Client actions ────────────────────
+        const createClient = async () => {
+            if (!newClientName.value) return;
+            await fetch('/api/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newClientName.value })
+            });
+            showAddClient.value = false;
+            newClientName.value = '';
+            await fetchClients();
+        };
+
+        const delClient = async id => {
+            if (!confirm('Удалить клиента?')) return;
+            await fetch('/api/clients/' + encodeURIComponent(id), { method: 'DELETE' });
+            await fetchClients();
+        };
+
+        const viewCfg = async id => {
+            try {
+                const r = await fetch('/api/clients/' + encodeURIComponent(id) + '/config');
+                const d = await r.json();
+                cfgText.value = d.config || '';
+                showCfgModal.value = true;
+            } catch (e) { alert('❌ ' + e.message); }
+        };
+
+        const copyCfg = () => {
+            navigator.clipboard.writeText(cfgText.value);
+            alert('Скопировано!');
+        };
+
+        // ── Init ─────────────────────────────
+        onMounted(() => {
+            fetchStatus(); fetchServers(); fetchClients(); fetchLogs();
+            setInterval(fetchStatus, 5000);
+            setInterval(fetchLogs, 3000);
+        });
+
+        return {
+            tab, status, logs, servers, clients, sbRunning, logEl, logEl2,
+            showModal, modalMode, installing, autoForm, manForm,
+            showAddClient, newClientName, showCfgModal, cfgText,
+            hasFatal, stripAnsi, logClass, orchStat,
+            fetchLogs, openModal, runAutoInstall, addManual, delServer,
+            createClient, delClient, viewCfg, copyCfg
+        };
+    }
+}).mount('#app');
+</script>
 </body>
 </html>
