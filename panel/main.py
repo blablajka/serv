@@ -12,10 +12,32 @@ import secrets
 import paramiko
 import time
 import logging
+from collections import deque
+import datetime
 
 from config_generator import generate_singbox_config
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Настраиваем кастомный логгер, чтобы сохранять логи оркестратора в память для веба
+orchestrator_logs = deque(maxlen=100)
+
+class MemoryHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        orchestrator_logs.appendleft(log_entry)
+
+logger = logging.getLogger("SmartVPN")
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+# Вывод в консоль
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+# Вывод в память для веб-морды
+mh = MemoryHandler()
+mh.setFormatter(formatter)
+logger.addHandler(mh)
 
 app = FastAPI(title="Smart VPN Panel")
 security = HTTPBasic()
@@ -117,7 +139,7 @@ async def delete_server(name: str, username: str = Depends(verify_credentials)):
 
 @app.post("/api/servers/auto-install")
 async def auto_install_server(data: AutoInstallModel, username: str = Depends(verify_credentials)):
-    logging.info(f"Начинаем автоустановку на {data.ip}")
+    logger.info(f"Начинаем автоустановку на {data.ip}...")
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -217,8 +239,31 @@ PostDown = iptables -D FORWARD -i awg0 -j ACCEPT; iptables -t nat -D POSTROUTING
         return {"status": "ok", "message": "Успешно установлено и добавлено!"}
         
     except Exception as e:
-        logging.error(f"Ошибка автоустановки: {e}")
+        logger.error(f"Ошибка автоустановки: {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка автоустановки: {str(e)}")
+
+@app.get("/api/logs")
+async def get_logs(username: str = Depends(verify_credentials)):
+    logs_data = []
+    
+    # 1. Получаем логи sing-box
+    try:
+        sb_logs = subprocess.check_output(
+            ["journalctl", "-u", "sing-box", "-n", "30", "-o", "cat"], 
+            stderr=subprocess.STDOUT, text=True
+        )
+        for line in reversed(sb_logs.strip().split('\n')):
+            if line:
+                logs_data.append(f"[SING-BOX] {line}")
+    except FileNotFoundError:
+        logs_data.append("[SING-BOX] journalctl не найден (Windows/Test Env?)")
+    except Exception as e:
+        logs_data.append(f"[SING-BOX] Ошибка чтения логов: {e}")
+
+    # 2. Добавляем логи оркестратора
+    logs_data.extend(list(orchestrator_logs))
+    
+    return {"logs": logs_data}
 
 @app.get("/api/status")
 async def get_status(username: str = Depends(verify_credentials)):
@@ -293,13 +338,13 @@ def get_server_stats(server):
 
         return total_gb, active_users, True
     except Exception as e:
-        logging.error(f"Healthcheck failed for {server['name']}: {e}")
+        logger.error(f"Healthcheck failed for {server['name']}: {e}")
         return 0, 0, False
 
 async def switch_outbound(target_name):
     async with httpx.AsyncClient() as client:
         await client.put(f"{CLASH_API_URL}/proxies/{CLASH_SELECTOR}", json={"name": target_name})
-        logging.info(f"Switched to {target_name}")
+        logger.info(f"SWITCH EVENT: Переключение исходящего узла на -> {target_name}")
 
 async def orchestrator_loop():
     global last_orchestrator_stats
@@ -346,12 +391,12 @@ async def orchestrator_loop():
                     if not is_current_ok:
                         await switch_outbound(best_name)
             else:
-                logging.warning("ALL FOREIGN SERVERS DEAD OR LIMIT REACHED!")
+                logger.warning("АХТУНГ: Все зарубежные серверы недоступны или исчерпали лимиты! Fallback на direct.")
                 if current != "direct":
                     await switch_outbound("direct")
 
         except Exception as e:
-            logging.error(f"Orchestrator error: {e}")
+            logger.error(f"Orchestrator error: {e}")
         
         await asyncio.sleep(60)
 
