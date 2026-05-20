@@ -37,22 +37,26 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "persistent_keepalive_interval": 25
         }
         
-        # AmneziaWG обфускация — поле "awg" в peer (формат sing-box-extended)
+        # AmneziaWG обфускация — поле "amnezia" в ENDPOINT (не в peer!)
+        # Строчные буквы: jc, jmin, jmax, s1-s4, h1-h4
+        amnezia = None
         if obfs_params:
-            peer["awg"] = {
-                "Jc": obfs_params.get("jc", 120),
-                "Jmin": obfs_params.get("jmin", 23),
-                "Jmax": obfs_params.get("jmax", 911),
-                "S1": obfs_params.get("s1", 0),
-                "S2": obfs_params.get("s2", 0),
-                "H1": obfs_params.get("h1", 1),
-                "H2": obfs_params.get("h2", 2),
-                "H3": obfs_params.get("h3", 3),
-                "H4": obfs_params.get("h4", 4)
+            amnezia = {
+                "jc": obfs_params.get("jc", 120),
+                "jmin": obfs_params.get("jmin", 23),
+                "jmax": obfs_params.get("jmax", 911),
+                "s1": obfs_params.get("s1", 0),
+                "s2": obfs_params.get("s2", 0),
+                "s3": obfs_params.get("s3", 0),
+                "s4": obfs_params.get("s4", 0),
+                "h1": obfs_params.get("h1", 1),
+                "h2": obfs_params.get("h2", 2),
+                "h3": obfs_params.get("h3", 3),
+                "h4": obfs_params.get("h4", 4)
             }
 
         # Endpoint (физическое WireGuard-соединение)
-        endpoints.append({
+        endpoint = {
             "type": "wireguard",
             "tag": endpoint_tag,
             "mtu": 1420,
@@ -60,7 +64,10 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "private_key": server["private_key"],
             "domain_resolver": "dns-local",
             "peers": [peer]
-        })
+        }
+        if amnezia:
+            endpoint["amnezia"] = amnezia
+        endpoints.append(endpoint)
         
         # Outbound (ссылка на endpoint через detour)
         outbounds.append({
