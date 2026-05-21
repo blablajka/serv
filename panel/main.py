@@ -15,6 +15,7 @@ import logging
 import random
 import aiofiles
 import collections
+from collections import deque
 import datetime
 
 class SSHPool:
