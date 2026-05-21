@@ -14,8 +14,45 @@ import time
 import logging
 import random
 import aiofiles
-from collections import deque
+import collections
 import datetime
+
+class SSHPool:
+    def __init__(self):
+        self.clients = {}
+
+    def get_client(self, server):
+        ip = server["ip"]
+        if ip in self.clients:
+            client = self.clients[ip]
+            if client.get_transport() and client.get_transport().is_active():
+                try:
+                    client.exec_command("echo 1", timeout=2)
+                    return client
+                except:
+                    pass
+            client.close()
+            del self.clients[ip]
+        
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            key_path = server.get("ssh_key_path", "")
+            if key_path and os.path.exists(key_path):
+                ssh.connect(hostname=ip, port=server.get("ssh_port", 22),
+                            username=server.get("ssh_user", "root"), key_filename=key_path, timeout=5)
+            else:
+                ssh.connect(hostname=ip, port=server.get("ssh_port", 22),
+                            username=server.get("ssh_user", "root"),
+                            password=server.get("ssh_password", ""), timeout=5)
+            self.clients[ip] = ssh
+            return ssh
+        except Exception as e:
+            logger.error(f"SSH pool connect failed to {ip}: {e}")
+            return None
+
+ssh_pool = SSHPool()
+
 
 from config_generator import generate_singbox_config
 
@@ -397,10 +434,13 @@ async def get_status(username: str = Depends(verify_credentials)):
             r = await client.get(f"{CLASH_API_URL}/proxies/{CLASH_SELECTOR}", timeout=2)
             if r.status_code == 200:
                 data = r.json()
-                return {"now": data.get("now"), "orchestrator_cache": last_orchestrator_stats}
+                # Конвертируем deque в list для JSON
+                cache = {k: {**v, "history_cpu": list(v.get("history_cpu", [])), "history_ram": list(v.get("history_ram", [])), "history_gb": list(v.get("history_gb", []))} for k, v in last_orchestrator_stats.items()}
+                return {"now": data.get("now"), "orchestrator_cache": cache}
     except:
         pass
-    return {"error": "Clash API недоступен", "orchestrator_cache": last_orchestrator_stats}
+    cache = {k: {**v, "history_cpu": list(v.get("history_cpu", [])), "history_ram": list(v.get("history_ram", [])), "history_gb": list(v.get("history_gb", []))} for k, v in last_orchestrator_stats.items()}
+    return {"error": "Clash API недоступен", "orchestrator_cache": cache}
 
 async def proxy_awg(method: str, endpoint: str, data=None):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
@@ -488,40 +528,56 @@ async def get_client_config(client_id: str, username: str = Depends(verify_crede
 last_orchestrator_stats = {}
 
 def get_server_stats(server):
-    """SSH на зарубежный сервер, получаем трафик и кол-во активных пиров"""
+    """SSH на зарубежный сервер: получаем CPU, RAM, трафик и пиров"""
     try:
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        key_path = server.get("ssh_key_path", "")
-        if key_path and os.path.exists(key_path):
-            ssh.connect(hostname=server["ip"], port=server.get("ssh_port", 22),
-                        username=server.get("ssh_user", "root"), key_filename=key_path, timeout=5)
-        else:
-            ssh.connect(hostname=server["ip"], port=server.get("ssh_port", 22),
-                        username=server.get("ssh_user", "root"),
-                        password=server.get("ssh_password", ""), timeout=5)
+        ssh = ssh_pool.get_client(server)
+        if not ssh:
+            return 0, 0, 0, 0, False
 
         iface = server.get("wg_interface", "awg0")
-        stdin, stdout, stderr = ssh.exec_command(f"awg show {iface} transfer")
-        transfer_data = stdout.read().decode('utf-8').strip()
+        cmd = f"""
+        echo "CPU=$(top -bn1 | grep '%Cpu(s)' | awk '{{print $2 + $4}}')"
+        echo "RAM=$(free -m | awk 'NR==2{{printf "%.1f", $3*100/$2}}')"
+        awg show {iface} transfer
+        echo "---"
+        awg show {iface} latest-handshakes
+        """
+        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=5)
+        out = stdout.read().decode('utf-8').strip().split('\n')
+        
+        cpu = 0
+        ram = 0
+        transfer_data = []
+        handshake_data = []
+        parsing_handshakes = False
+        
+        for line in out:
+            line = line.strip()
+            if line.startswith("CPU="):
+                try: cpu = float(line.split("=")[1])
+                except: pass
+            elif line.startswith("RAM="):
+                try: ram = float(line.split("=")[1])
+                except: pass
+            elif line == "---":
+                parsing_handshakes = True
+            elif parsing_handshakes:
+                handshake_data.append(line)
+            else:
+                transfer_data.append(line)
 
-        stdin, stdout, stderr = ssh.exec_command(f"awg show {iface} latest-handshakes")
-        handshake_data = stdout.read().decode('utf-8').strip()
-        ssh.close()
-
-        total_bytes = sum([int(p[1]) + int(p[2]) for line in transfer_data.split('\n')
+        total_bytes = sum([int(p[1]) + int(p[2]) for line in transfer_data
                            if (p := line.split()) and len(p) >= 3])
         total_gb = total_bytes / (1024**3)
 
-        active_users = sum([1 for line in handshake_data.split('\n')
+        active_users = sum([1 for line in handshake_data
                             if (p := line.split()) and len(p) >= 2
                             and int(p[1]) > 0 and (time.time() - int(p[1])) < 300])
 
-        return total_gb, active_users, True
+        return total_gb, active_users, cpu, ram, True
     except Exception as e:
         logger.error(f"Healthcheck failed for {server['name']}: {e}")
-        return 0, 0, False
+        return 0, 0, 0, 0, False
 
 async def switch_outbound(target_name):
     """Переключить активный outbound через Clash API"""
@@ -536,14 +592,43 @@ async def orchestrator_loop():
         try:
             servers = load_servers()
             if not servers:
-                await asyncio.sleep(60)
+                await asyncio.sleep(10)
                 continue
 
-            available_servers = []
+            # Асинхронно опрашиваем все серверы
+            tasks = [asyncio.to_thread(get_server_stats, srv) for srv in servers]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for srv in servers:
-                gb, users, is_alive = get_server_stats(srv)
-                last_orchestrator_stats[srv["name"]] = {"gb": gb, "users": users, "alive": is_alive}
+            available_servers = []
+            
+            for srv, res in zip(servers, results):
+                if isinstance(res, Exception):
+                    logger.error(f"Error fetching stats for {srv['name']}: {res}")
+                    gb, users, cpu, ram, is_alive = 0, 0, 0, 0, False
+                else:
+                    gb, users, cpu, ram, is_alive = res
+
+                # Храним историю из последних 60 значений (10 минут)
+                if srv["name"] not in last_orchestrator_stats:
+                    last_orchestrator_stats[srv["name"]] = {
+                        "gb": gb, "users": users, "alive": is_alive,
+                        "history_cpu": collections.deque(maxlen=60),
+                        "history_ram": collections.deque(maxlen=60),
+                        "history_gb": collections.deque(maxlen=60)
+                    }
+                
+                stats = last_orchestrator_stats[srv["name"]]
+                stats["gb"] = gb
+                stats["users"] = users
+                stats["alive"] = is_alive
+                if is_alive:
+                    stats["history_cpu"].append(cpu)
+                    stats["history_ram"].append(ram)
+                    stats["history_gb"].append(gb)
+                else:
+                    stats["history_cpu"].append(0)
+                    stats["history_ram"].append(0)
+                    stats["history_gb"].append(0)
 
                 if not is_alive:
                     continue
@@ -584,7 +669,7 @@ async def orchestrator_loop():
         except Exception as e:
             logger.error(f"Orchestrator error: {e}")
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(10)
 
 # --- App Lifecycle ---
 @app.on_event("startup")

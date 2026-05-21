@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart VPN Panel</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -454,24 +455,42 @@
             </div>
         </div>
         <div class="srv-list">
-            <div v-for="s in servers" :key="s.name" class="srv-item">
-                <div class="srv-info">
-                    <div class="dot" :class="orchStat(s.name,'alive')===true ? 'on' : orchStat(s.name,'alive')===false ? 'off' : 'unk'"></div>
-                    <div>
-                        <div class="srv-name">{{ s.name }}</div>
-                        <div class="srv-meta">{{ s.ip }}:{{ s.port }} • {{ s.wg_interface||'awg0' }}</div>
+            <div v-for="s in servers" :key="s.name" class="srv-item" style="flex-direction:column; align-items:stretch; padding:14px 18px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="srv-info">
+                        <div class="dot" :class="orchStat(s.name,'alive')===true ? 'on' : orchStat(s.name,'alive')===false ? 'off' : 'unk'"></div>
+                        <div>
+                            <div class="srv-name">{{ s.name }}</div>
+                            <div class="srv-meta">{{ s.ip }}:{{ s.port }} • {{ s.wg_interface||'awg0' }}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        <div style="text-align:right;">
+                            <div class="srv-stat-val">{{ s.limit_gb }} GB</div>
+                            <div class="srv-stat-lbl">Лимит</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="srv-stat-val">{{ s.limit_users }}</div>
+                            <div class="srv-stat-lbl">Юзеров</div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" @click="delServer(s.name)">✕</button>
                     </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:14px;">
-                    <div style="text-align:right;">
-                        <div class="srv-stat-val">{{ s.limit_gb }} GB</div>
-                        <div class="srv-stat-lbl">Лимит</div>
+                
+                <!-- Graphs -->
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.05); display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div>
+                        <div class="srv-stat-lbl" style="margin-bottom:8px;">CPU & RAM (%)</div>
+                        <div style="height:120px; position:relative;">
+                            <canvas :id="'chart-sys-' + s.name"></canvas>
+                        </div>
                     </div>
-                    <div style="text-align:right;">
-                        <div class="srv-stat-val">{{ s.limit_users }}</div>
-                        <div class="srv-stat-lbl">Юзеров</div>
+                    <div>
+                        <div class="srv-stat-lbl" style="margin-bottom:8px;">Трафик (GB)</div>
+                        <div style="height:120px; position:relative;">
+                            <canvas :id="'chart-net-' + s.name"></canvas>
+                        </div>
                     </div>
-                    <button class="btn btn-danger btn-sm" @click="delServer(s.name)">✕</button>
                 </div>
             </div>
             <div v-if="servers.length===0" class="empty">Нет серверов. Нажмите «⚡ Авто-установка».</div>
@@ -646,6 +665,82 @@ createApp({
         const autoForm = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
         const manForm  = ref({ name:'', ip:'', port:51820, local_address:'10.66.66.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5 });
 
+        const charts = {}; // хэш для хранения экземпляров Chart
+
+        // ── Настройка графиков ────────────────────
+        Chart.defaults.color = 'rgba(255,255,255,0.5)';
+        Chart.defaults.font.family = 'Inter';
+        const commonChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 400 },
+            elements: { point: { radius: 0 }, line: { tension: 0.3, borderWidth: 2 } },
+            plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+            scales: {
+                x: { display: false },
+                y: { display: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
+            }
+        };
+
+        const updateCharts = () => {
+            if (tab.value !== 'servers') return;
+            const c = status.value.orchestrator_cache || {};
+            
+            servers.value.forEach(s => {
+                const data = c[s.name];
+                if (!data) return;
+
+                const sysId = 'chart-sys-' + s.name;
+                const netId = 'chart-net-' + s.name;
+
+                const labels = data.history_cpu ? data.history_cpu.map((_, i) => i) : [];
+
+                // Системный график (CPU & RAM)
+                const sysCanvas = document.getElementById(sysId);
+                if (sysCanvas) {
+                    if (!charts[sysId]) {
+                        charts[sysId] = new Chart(sysCanvas, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'CPU %', data: data.history_cpu || [], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true },
+                                    { label: 'RAM %', data: data.history_ram || [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true }
+                                ]
+                            },
+                            options: { ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { max: 100, beginAtZero: true } } }
+                        });
+                    } else {
+                        charts[sysId].data.labels = labels;
+                        charts[sysId].data.datasets[0].data = data.history_cpu || [];
+                        charts[sysId].data.datasets[1].data = data.history_ram || [];
+                        charts[sysId].update('none');
+                    }
+                }
+
+                // Сетевой график (GB)
+                const netCanvas = document.getElementById(netId);
+                if (netCanvas) {
+                    if (!charts[netId]) {
+                        charts[netId] = new Chart(netCanvas, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'Трафик (GB)', data: data.history_gb || [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true }
+                                ]
+                            },
+                            options: commonChartOptions
+                        });
+                    } else {
+                        charts[netId].data.labels = labels;
+                        charts[netId].data.datasets[0].data = data.history_gb || [];
+                        charts[netId].update('none');
+                    }
+                }
+            });
+        };
+
         // ── Helpers ──────────────────────────
         const stripAnsi = s => s.replace(/\x1B\[[0-9;]*[mGKH]/g, '').replace(/\[\d+m/g, '');
 
@@ -681,6 +776,7 @@ createApp({
                 const d = await r.json();
                 status.value = d;
                 sbRunning.value = !d.error;
+                nextTick(() => updateCharts());
             } catch { sbRunning.value = false; }
         };
 
@@ -795,7 +891,7 @@ createApp({
         onMounted(() => {
             fetchStatus(); fetchServers(); fetchClients(); fetchLogs();
             setInterval(fetchStatus, 5000);
-            setInterval(fetchLogs, 3000);
+            setInterval(fetchLogs, 5000);
         });
 
         return {
