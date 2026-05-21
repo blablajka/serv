@@ -116,7 +116,7 @@ log_success "Go установлен ($(go version))."
 
 # 4. Сборка awg-server
 log_info "Сборка awg-server (это может занять время)..."
-mkdir -p /opt/awg-server
+mkdir -p /opt/awg-server/data
 if [ ! -f "/opt/awg-server/awg-server" ]; then
     git clone https://github.com/stealthsurf-vpn/awg-server.git /tmp/awg-server-src
     cd /tmp/awg-server-src
@@ -131,11 +131,14 @@ Description=AmneziaWG Server API
 After=network.target
 
 [Service]
-ExecStart=/opt/awg-server/awg-server
 WorkingDirectory=/opt/awg-server
+ExecStart=/bin/bash -c "AWG_ENDPOINT=\\\$(curl -s ifconfig.me || wget -qO- ifconfig.me) /opt/awg-server/awg-server"
 Restart=always
-Environment="AWG_SERVER_PORT=8080"
-Environment="AWG_SERVER_TOKEN=secret_token_123"
+RestartSec=5
+Environment="AWG_API_TOKEN=secret_token_123"
+Environment="AWG_HTTP_PORT=8080"
+Environment="AWG_ADDRESS=10.255.0.1/24"
+Environment="AWG_DATA_DIR=/opt/awg-server/data"
 
 [Install]
 WantedBy=multi-user.target
