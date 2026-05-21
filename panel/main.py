@@ -165,31 +165,34 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
         # Шаг 1: Установка AmneziaWG через PPA (Ubuntu 22.04)
         logger.info("Устанавливаем AmneziaWG на зарубежный сервер...")
         install_cmds = [
-            "DEBIAN_FRONTEND=noninteractive apt-get update -y",
-            "DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common",
-            "add-apt-repository ppa:amnezia/ppa -y",
-            "DEBIAN_FRONTEND=noninteractive apt-get update -y",
-            "DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools",
-            "mkdir -p /etc/amnezia/amneziawg",
+            # Ждём пока отпустят dpkg-лок (авто-обновления и т.п.)
+            "while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo 'Ждём dpkg...'; sleep 5; done",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common",
+            "sudo add-apt-repository ppa:amnezia/ppa -y",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y",
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools",
+            "sudo mkdir -p /etc/amnezia/amneziawg",
         ]
         for cmd in install_cmds:
-            out, err, code = run_ssh(ssh, cmd, timeout=300)
-            logger.info(f"[{code}] {cmd[:60]}")
+            out, err, code = run_ssh(ssh, cmd, timeout=600)
+            logger.info(f"[{code}] {cmd[:70]}")
             if code != 0 and "amneziawg" in cmd and "install" in cmd:
                 raise Exception(f"Ошибка установки AmneziaWG: {err[:500]}")
 
+
         # Шаг 2: Генерация серверных ключей на зарубежном сервере
         logger.info("Генерируем серверные ключи на зарубежном сервере...")
-        out, err, code = run_ssh(ssh, "awg genkey | tee /etc/amnezia/amneziawg/server_private.key | awg pubkey | tee /etc/amnezia/amneziawg/server_public.key")
+        out, err, code = run_ssh(ssh, "sudo awg genkey | sudo tee /etc/amnezia/amneziawg/server_private.key | sudo awg pubkey | sudo tee /etc/amnezia/amneziawg/server_public.key")
         if code != 0:
             raise Exception(f"Ошибка генерации серверных ключей: {err}")
 
-        out, err, code = run_ssh(ssh, "cat /etc/amnezia/amneziawg/server_private.key")
+        out, err, code = run_ssh(ssh, "sudo cat /etc/amnezia/amneziawg/server_private.key")
         if not out:
             raise Exception("Серверный приватный ключ пустой!")
         server_private_key = out.strip()
 
-        out, err, code = run_ssh(ssh, "cat /etc/amnezia/amneziawg/server_public.key")
+        out, err, code = run_ssh(ssh, "sudo cat /etc/amnezia/amneziawg/server_public.key")
         if not out:
             raise Exception("Серверный публичный ключ пустой!")
         server_public_key = out.strip()
@@ -253,19 +256,22 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
             f"AllowedIPs = 10.66.66.2/32\n"
         )
 
+        # Записываем конфиг через /tmp (SFTP не требует root)
         sftp = ssh.open_sftp()
-        with sftp.file('/etc/amnezia/amneziawg/awg0.conf', 'w') as f:
+        with sftp.file('/tmp/awg0.conf', 'w') as f:
             f.write(wg_conf)
         sftp.close()
+        run_ssh(ssh, "sudo mv /tmp/awg0.conf /etc/amnezia/amneziawg/awg0.conf")
+        run_ssh(ssh, "sudo chmod 600 /etc/amnezia/amneziawg/awg0.conf")
 
         # Шаг 6: Включаем IP-форвардинг и запускаем AWG
-        run_ssh(ssh, "echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-vpn.conf && sysctl -p /etc/sysctl.d/99-vpn.conf")
-        run_ssh(ssh, "systemctl stop awg-quick@awg0 || true")
-        run_ssh(ssh, "systemctl enable --now awg-quick@awg0")
-        run_ssh(ssh, f"ufw allow {wg_port}/udp || true")
+        run_ssh(ssh, "echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-vpn.conf && sudo sysctl -p /etc/sysctl.d/99-vpn.conf")
+        run_ssh(ssh, "sudo systemctl stop awg-quick@awg0 2>/dev/null || true")
+        run_ssh(ssh, "sudo systemctl enable --now awg-quick@awg0")
+        run_ssh(ssh, f"sudo ufw allow {wg_port}/udp 2>/dev/null || true")
         run_ssh(ssh, "rm -f /tmp/client_priv.key /tmp/client_pub.key")
 
-        out, err, code = run_ssh(ssh, "systemctl is-active awg-quick@awg0")
+        out, err, code = run_ssh(ssh, "sudo systemctl is-active awg-quick@awg0")
         logger.info(f"Статус awg0: '{out}' (код {code})")
         ssh.close()
 
