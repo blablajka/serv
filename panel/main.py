@@ -752,7 +752,8 @@ async def orchestrator_loop():
                 best_tag = f"ep-{best['name']}"
 
                 if current != best_tag:
-                    current_stats = last_orchestrator_stats.get(current, {})
+                    current_name = current[3:] if current and current.startswith("ep-") else current
+                    current_stats = last_orchestrator_stats.get(current_name, {})
                     is_current_ok = (current_stats.get("alive") and
                                      current_stats.get("gb", 0) < next(
                                          (s["limit_gb"] for s in servers if f"ep-{s['name']}" == current), 9999))
