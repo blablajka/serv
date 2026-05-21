@@ -129,7 +129,7 @@ async def get_servers(username: str = Depends(verify_credentials)):
     return result
 
 @app.post("/api/servers")
-async def add_server(server: ServerModel, username: str = Depends(verify_credentials)):
+def add_server(server: ServerModel, username: str = Depends(verify_credentials)):
     servers = load_servers()
     srv_dict = server.dict()
     servers.append(srv_dict)
@@ -137,14 +137,14 @@ async def add_server(server: ServerModel, username: str = Depends(verify_credent
     return {"status": "ok"}
 
 @app.delete("/api/servers/{name}")
-async def delete_server(name: str, username: str = Depends(verify_credentials)):
+def delete_server(name: str, username: str = Depends(verify_credentials)):
     servers = load_servers()
     servers = [s for s in servers if s["name"] != name]
     save_servers(servers)
     return {"status": "ok"}
 
 @app.post("/api/servers/auto-install")
-async def auto_install_server(data: AutoInstallModel, username: str = Depends(verify_credentials)):
+def auto_install_server(data: AutoInstallModel, username: str = Depends(verify_credentials)):
     logger.info(f"Начинаем автоустановку на {data.ip}...")
 
     def run_ssh(ssh_client, cmd, timeout=300, sudo_pass=None):
@@ -405,14 +405,32 @@ async def get_status(username: str = Depends(verify_credentials)):
 async def proxy_awg(method: str, endpoint: str, data=None):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
     url = f"{AWG_SERVER_API}{endpoint}"
-    async with httpx.AsyncClient() as client:
-        if method == "GET":
-            r = await client.get(url, headers=headers)
-        elif method == "POST":
-            r = await client.post(url, json=data, headers=headers)
-        elif method == "DELETE":
-            r = await client.delete(url, headers=headers)
-        return JSONResponse(content=r.json(), status_code=r.status_code)
+    logger.info(f"Запрос к локальному awg-server: {method} {endpoint} (data: {data})")
+    try:
+        async with httpx.AsyncClient() as client:
+            if method == "GET":
+                r = await client.get(url, headers=headers, timeout=5)
+            elif method == "POST":
+                r = await client.post(url, json=data, headers=headers, timeout=5)
+            elif method == "DELETE":
+                r = await client.delete(url, headers=headers, timeout=5)
+            
+            logger.info(f"Ответ от awg-server: [{r.status_code}] {r.text[:300]}")
+            
+            try:
+                content = r.json()
+            except Exception:
+                content = {"detail": r.text}
+                
+            return JSONResponse(content=content, status_code=r.status_code)
+    except httpx.ConnectError as ce:
+        msg = f"Ошибка подключения к awg-server на {AWG_SERVER_API}: {ce}. Проверьте, запущен ли сервис awg-server (systemctl status awg-server)"
+        logger.error(msg)
+        return JSONResponse(content={"error": msg}, status_code=502)
+    except Exception as e:
+        msg = f"Ошибка вызова awg-server ({method} {endpoint}): {e}"
+        logger.error(msg)
+        return JSONResponse(content={"error": msg}, status_code=500)
 
 @app.get("/api/clients")
 async def get_clients(username: str = Depends(verify_credentials)):
@@ -421,18 +439,31 @@ async def get_clients(username: str = Depends(verify_credentials)):
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
     data = await request.json()
+    logger.info(f"Поступил запрос на создание клиента: {data}")
     return await proxy_awg("POST", "/clients", data)
 
 @app.delete("/api/clients/{client_id}")
 async def delete_client(client_id: str, username: str = Depends(verify_credentials)):
+    logger.info(f"Поступил запрос на удаление клиента: {client_id}")
     return await proxy_awg("DELETE", f"/clients/{client_id}")
 
 @app.get("/api/clients/{client_id}/config")
 async def get_client_config(client_id: str, username: str = Depends(verify_credentials)):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"{AWG_SERVER_API}/clients/{client_id}/config", headers=headers)
-        return {"config": r.text}
+    url = f"{AWG_SERVER_API}/clients/{client_id}/config"
+    logger.info(f"Запрос конфига для клиента {client_id} от awg-server")
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(url, headers=headers, timeout=5)
+            if r.status_code == 200:
+                logger.info(f"Конфиг для {client_id} успешно получен")
+                return {"config": r.text}
+            else:
+                logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
+                raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
+    except Exception as e:
+        logger.error(f"Исключение при получении конфига {client_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Orchestrator Logic ---
 last_orchestrator_stats = {}
