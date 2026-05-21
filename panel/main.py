@@ -196,6 +196,12 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
 
         # Шаг 1: Установка AmneziaWG через PPA (Ubuntu 22.04)
         logger.info("Устанавливаем AmneziaWG на зарубежный сервер...")
+
+        # Определяем версию ядра для правильной установки linux-headers
+        kver_out, _, _ = run_ssh(ssh, "uname -r")
+        kver = kver_out.strip()
+        logger.info(f"Ядро: {kver}")
+
         install_cmds = [
             # Ждём освобождения dpkg-лока (unattended-upgrades и т.п.)
             S("bash -c 'while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo Waiting dpkg...; sleep 5; done'"),
@@ -203,8 +209,13 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
             S("DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common"),
             S("add-apt-repository ppa:amnezia/ppa -y"),
             S("DEBIAN_FRONTEND=noninteractive apt-get update -y"),
+            # linux-headers нужны для компиляции DKMS модуля
+            S(f"DEBIAN_FRONTEND=noninteractive apt-get install -y linux-headers-{kver} || "
+              f"DEBIAN_FRONTEND=noninteractive apt-get install -y linux-headers-generic"),
             S("DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools"),
             S("mkdir -p /etc/amnezia/amneziawg"),
+            # Загружаем кернельный модуль
+            S("modprobe amneziawg || true"),
         ]
         for cmd in install_cmds:
             out, err, code = run_ssh(ssh, cmd, timeout=600, sudo_pass=sp)
@@ -236,9 +247,9 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
         server_public_key = out.strip()
         logger.info(f"Серверный pubkey: {server_public_key[:20]}...")
 
-        # Шаг 3: Генерируем клиентские ключи на зарубежном сервере
+        # Шаг 3: Генерируем клиентские ключи в /tmp (без root)
         logger.info("Генерируем клиентские ключи...")
-        out, err, code = run_ssh(ssh, "awg genkey | tee /tmp/client_priv.key | awg pubkey | tee /tmp/client_pub.key")
+        out, err, code = run_ssh(ssh, "awg genkey > /tmp/client_priv.key && awg pubkey < /tmp/client_priv.key > /tmp/client_pub.key")
         if code != 0:
             raise Exception(f"Ошибка генерации клиентских ключей: {err}")
 
@@ -311,10 +322,20 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
 
         out, err, code = run_ssh(ssh, S("systemctl is-active awg-quick@awg0"), sudo_pass=sp)
         logger.info(f"Статус awg0: '{out}' (код {code})")
-        ssh.close()
 
         if out.strip() != "active":
-            raise Exception(f"awg-quick@awg0 не запустился! Статус: '{out}'. Проверьте: journalctl -u awg-quick@awg0 -n 10")
+            # Автоматически читаем journalctl чтобы показать причину
+            jlog, _, _ = run_ssh(ssh, S("journalctl -u awg-quick@awg0 -n 15 --no-pager -o cat 2>&1"), sudo_pass=sp)
+            logger.error(f"journalctl awg-quick@awg0:\n{jlog}")
+            # Также проверяем DKMS-модуль
+            dkms_out, _, _ = run_ssh(ssh, "lsmod | grep amneziawg")
+            logger.info(f"amneziawg lsmod: '{dkms_out}'")
+            ssh.close()
+            raise Exception(
+                f"awg-quick@awg0 не запустился (статус: {out.strip()}).\n"
+                f"journalctl: {jlog[:600]}"
+            )
+        ssh.close()
 
         # Шаг 7: Сохраняем сервер и перезапускаем sing-box
         server = {
