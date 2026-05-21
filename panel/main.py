@@ -315,7 +315,8 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
 
         # Шаг 6: IP-форвардинг и запуск AWG
         run_ssh(ssh, S("bash -c \"echo net.ipv4.ip_forward=1 > /etc/sysctl.d/99-vpn.conf && sysctl -p /etc/sysctl.d/99-vpn.conf\""), sudo_pass=sp)
-        run_ssh(ssh, S("systemctl stop awg-quick@awg0 2>/dev/null"), sudo_pass=sp)
+        run_ssh(ssh, S("systemctl stop awg-quick@awg0 2>/dev/null || true"), sudo_pass=sp)
+        run_ssh(ssh, S("ip link delete awg0 2>/dev/null || true"), sudo_pass=sp) # Чистим старый интерфейс, если завис
         run_ssh(ssh, S("systemctl enable --now awg-quick@awg0"), sudo_pass=sp)
         run_ssh(ssh, S(f"bash -c \"ufw allow {wg_port}/udp 2>/dev/null || true\""), sudo_pass=sp)
         run_ssh(ssh, "rm -f /tmp/client_priv.key /tmp/client_pub.key")
