@@ -212,15 +212,18 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
             if code != 0 and "amneziawg" in cmd and "install" in cmd:
                 raise Exception(f"Ошибка установки AmneziaWG: {err[:500]}")
 
-        # Шаг 2: Генерация серверных ключей на зарубежном сервере
-        logger.info("Генерируем серверные ключи на зарубежном сервере...")
-        if is_root:
-            gen_srv = "awg genkey | tee /etc/amnezia/amneziawg/server_private.key | awg pubkey | tee /etc/amnezia/amneziawg/server_public.key"
-        else:
-            gen_srv = "awg genkey | sudo -S tee /etc/amnezia/amneziawg/server_private.key | awg pubkey | sudo -S tee /etc/amnezia/amneziawg/server_public.key"
-        out, err, code = run_ssh(ssh, gen_srv, sudo_pass=sp)
+        # Шаг 2: Генерация серверных ключей во /tmp (awg genkey НЕ требует root!)
+        # Потом sudo mv в /etc/ — один простой sudo без pipeline
+        logger.info("Генерируем серверные ключи...")
+        out, err, code = run_ssh(ssh,
+            "awg genkey > /tmp/srv_priv.key && awg pubkey < /tmp/srv_priv.key > /tmp/srv_pub.key")
         if code != 0:
             raise Exception(f"Ошибка генерации серверных ключей: {err}")
+
+        # Перемещаем в /etc/ с sudo (простая команда — нет pipeline, sudo -S работает корректно)
+        run_ssh(ssh, S("mv /tmp/srv_priv.key /etc/amnezia/amneziawg/server_private.key"), sudo_pass=sp)
+        run_ssh(ssh, S("mv /tmp/srv_pub.key  /etc/amnezia/amneziawg/server_public.key"),  sudo_pass=sp)
+        run_ssh(ssh, S("chmod 600 /etc/amnezia/amneziawg/server_private.key"), sudo_pass=sp)
 
         out, err, code = run_ssh(ssh, S("cat /etc/amnezia/amneziawg/server_private.key"), sudo_pass=sp)
         if not out:
