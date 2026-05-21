@@ -436,11 +436,11 @@ async def get_status(username: str = Depends(verify_credentials)):
             if r.status_code == 200:
                 data = r.json()
                 # Конвертируем deque в list для JSON
-                cache = {k: {**v, "history_cpu": list(v.get("history_cpu", [])), "history_ram": list(v.get("history_ram", [])), "history_gb": list(v.get("history_gb", []))} for k, v in last_orchestrator_stats.items()}
+                cache = {k: {**v, "history_cpu": list(v.get("history_cpu", [])), "history_ram_used": list(v.get("history_ram_used", [])), "history_ram_total": list(v.get("history_ram_total", [])), "history_gb": list(v.get("history_gb", []))} for k, v in last_orchestrator_stats.items()}
                 return {"now": data.get("now"), "orchestrator_cache": cache}
     except:
         pass
-    cache = {k: {**v, "history_cpu": list(v.get("history_cpu", [])), "history_ram": list(v.get("history_ram", [])), "history_gb": list(v.get("history_gb", []))} for k, v in last_orchestrator_stats.items()}
+    cache = {k: {**v, "history_cpu": list(v.get("history_cpu", [])), "history_ram_used": list(v.get("history_ram_used", [])), "history_ram_total": list(v.get("history_ram_total", [])), "history_gb": list(v.get("history_gb", []))} for k, v in last_orchestrator_stats.items()}
     return {"error": "Clash API недоступен", "orchestrator_cache": cache}
 
 async def proxy_awg(method: str, endpoint: str, data=None):
@@ -538,7 +538,8 @@ def get_server_stats(server):
         iface = server.get("wg_interface", "awg0")
         cmd = f"""
         echo "CPU=$(top -bn1 | grep '%Cpu(s)' | awk '{{print $2 + $4}}')"
-        echo "RAM=$(free -m | awk 'NR==2{{printf "%.1f", $3*100/$2}}')"
+        echo "RAM_USED=$(free -m | awk 'NR==2{{print $3}}')"
+        echo "RAM_TOTAL=$(free -m | awk 'NR==2{{print $2}}')"
         awg show {iface} transfer
         echo "---"
         awg show {iface} latest-handshakes
@@ -557,8 +558,11 @@ def get_server_stats(server):
             if line.startswith("CPU="):
                 try: cpu = float(line.split("=")[1])
                 except: pass
-            elif line.startswith("RAM="):
-                try: ram = float(line.split("=")[1])
+            elif line.startswith("RAM_USED="):
+                try: ram_used = float(line.split("=")[1])
+                except: pass
+            elif line.startswith("RAM_TOTAL="):
+                try: ram_total = float(line.split("=")[1])
                 except: pass
             elif line == "---":
                 parsing_handshakes = True
@@ -575,10 +579,13 @@ def get_server_stats(server):
                             if (p := line.split()) and len(p) >= 2
                             and int(p[1]) > 0 and (time.time() - int(p[1])) < 300])
 
-        return total_gb, active_users, cpu, ram, True
+        ram_used = locals().get("ram_used", 0)
+        ram_total = locals().get("ram_total", 0)
+
+        return total_gb, active_users, cpu, ram_used, ram_total, True
     except Exception as e:
         logger.error(f"Healthcheck failed for {server['name']}: {e}")
-        return 0, 0, 0, 0, False
+        return 0, 0, 0, 0, 0, False
 
 async def switch_outbound(target_name):
     """Переключить активный outbound через Clash API"""
@@ -605,16 +612,17 @@ async def orchestrator_loop():
             for srv, res in zip(servers, results):
                 if isinstance(res, Exception):
                     logger.error(f"Error fetching stats for {srv['name']}: {res}")
-                    gb, users, cpu, ram, is_alive = 0, 0, 0, 0, False
+                    gb, users, cpu, ram_used, ram_total, is_alive = 0, 0, 0, 0, 0, False
                 else:
-                    gb, users, cpu, ram, is_alive = res
+                    gb, users, cpu, ram_used, ram_total, is_alive = res
 
                 # Храним историю из последних 60 значений (10 минут)
                 if srv["name"] not in last_orchestrator_stats:
                     last_orchestrator_stats[srv["name"]] = {
                         "gb": gb, "users": users, "alive": is_alive,
                         "history_cpu": collections.deque(maxlen=60),
-                        "history_ram": collections.deque(maxlen=60),
+                        "history_ram_used": collections.deque(maxlen=60),
+                        "history_ram_total": collections.deque(maxlen=60),
                         "history_gb": collections.deque(maxlen=60)
                     }
                 
@@ -624,11 +632,13 @@ async def orchestrator_loop():
                 stats["alive"] = is_alive
                 if is_alive:
                     stats["history_cpu"].append(cpu)
-                    stats["history_ram"].append(ram)
+                    stats["history_ram_used"].append(ram_used)
+                    stats["history_ram_total"].append(ram_total)
                     stats["history_gb"].append(gb)
                 else:
                     stats["history_cpu"].append(0)
-                    stats["history_ram"].append(0)
+                    stats["history_ram_used"].append(0)
+                    stats["history_ram_total"].append(0)
                     stats["history_gb"].append(0)
 
                 if not is_alive:

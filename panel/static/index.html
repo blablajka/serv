@@ -478,11 +478,17 @@
                 </div>
                 
                 <!-- Graphs -->
-                <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.05); display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.05); display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
                     <div>
-                        <div class="srv-stat-lbl" style="margin-bottom:8px;">CPU & RAM (%)</div>
+                        <div class="srv-stat-lbl" style="margin-bottom:8px;">CPU (%)</div>
                         <div style="height:120px; position:relative;">
-                            <canvas :id="'chart-sys-' + s.name"></canvas>
+                            <canvas :id="'chart-cpu-' + s.name"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="srv-stat-lbl" style="margin-bottom:8px;">RAM (MB) - <span style="color:var(--muted)">{{ status.orchestrator_cache && status.orchestrator_cache[s.name] && status.orchestrator_cache[s.name].history_ram_total ? status.orchestrator_cache[s.name].history_ram_total[status.orchestrator_cache[s.name].history_ram_total.length-1] + ' MB Total' : '' }}</span></div>
+                        <div style="height:120px; position:relative;">
+                            <canvas :id="'chart-ram-' + s.name"></canvas>
                         </div>
                     </div>
                     <div>
@@ -674,7 +680,7 @@ createApp({
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 400 },
-            elements: { point: { radius: 0 }, line: { tension: 0.3, borderWidth: 2 } },
+            elements: { point: { radius: 3, hitRadius: 10, hoverRadius: 5 }, line: { tension: 0.3, borderWidth: 2 } },
             plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
             scales: {
                 x: { display: false },
@@ -690,31 +696,52 @@ createApp({
                 const data = c[s.name];
                 if (!data) return;
 
-                const sysId = 'chart-sys-' + s.name;
+                const cpuId = 'chart-cpu-' + s.name;
+                const ramId = 'chart-ram-' + s.name;
                 const netId = 'chart-net-' + s.name;
 
                 const labels = data.history_cpu ? data.history_cpu.map((_, i) => i) : [];
 
-                // Системный график (CPU & RAM)
-                const sysCanvas = document.getElementById(sysId);
-                if (sysCanvas) {
-                    if (!charts[sysId]) {
-                        charts[sysId] = new Chart(sysCanvas, {
+                // График CPU (%)
+                const cpuCanvas = document.getElementById(cpuId);
+                if (cpuCanvas) {
+                    if (!charts[cpuId]) {
+                        charts[cpuId] = new Chart(cpuCanvas, {
                             type: 'line',
                             data: {
                                 labels: labels,
                                 datasets: [
-                                    { label: 'CPU %', data: data.history_cpu || [], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true },
-                                    { label: 'RAM %', data: data.history_ram || [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true }
+                                    { label: 'CPU %', data: data.history_cpu || [], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true }
                                 ]
                             },
                             options: { ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { max: 100, beginAtZero: true } } }
                         });
                     } else {
-                        charts[sysId].data.labels = labels;
-                        charts[sysId].data.datasets[0].data = data.history_cpu || [];
-                        charts[sysId].data.datasets[1].data = data.history_ram || [];
-                        charts[sysId].update('none');
+                        charts[cpuId].data.labels = labels;
+                        charts[cpuId].data.datasets[0].data = data.history_cpu || [];
+                        charts[cpuId].update('none');
+                    }
+                }
+
+                // График RAM (MB)
+                const ramCanvas = document.getElementById(ramId);
+                if (ramCanvas) {
+                    if (!charts[ramId]) {
+                        charts[ramId] = new Chart(ramCanvas, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    { label: 'RAM Used (MB)', data: data.history_ram_used || [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true }
+                                ]
+                            },
+                            options: { ...commonChartOptions, scales: { ...commonChartOptions.scales, y: { suggestedMax: (data.history_ram_total && data.history_ram_total[0]) || 1024, beginAtZero: true } } }
+                        });
+                    } else {
+                        charts[ramId].data.labels = labels;
+                        charts[ramId].data.datasets[0].data = data.history_ram_used || [];
+                        charts[ramId].options.scales.y.suggestedMax = (data.history_ram_total && data.history_ram_total[data.history_ram_total.length-1]) || 1024;
+                        charts[ramId].update('none');
                     }
                 }
 
