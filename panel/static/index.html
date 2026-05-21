@@ -315,6 +315,7 @@
             <button class="nav-btn" :class="{active: tab==='topo'}"     @click="tab='topo'">Топология</button>
             <button class="nav-btn" :class="{active: tab==='servers'}"  @click="tab='servers'">Серверы</button>
             <button class="nav-btn" :class="{active: tab==='clients'}"  @click="tab='clients'">Клиенты</button>
+            <button class="nav-btn" :class="{active: tab==='leaderboard'}" @click="fetchLeaderboard(); tab='leaderboard'">🏆 Leaderboard</button>
         </nav>
     </header>
 
@@ -510,17 +511,71 @@
             <button class="btn btn-primary" @click="showAddClient=true">+ Создать</button>
         </div>
         <div class="srv-list">
-            <div v-for="c in clients" :key="c.id||c.name" class="srv-item">
-                <div class="srv-info">
-                    <div class="dot on"></div>
-                    <div class="srv-name">{{ c.name||c.id }}</div>
+            <div v-for="c in clients" :key="c.id||c.name" class="srv-item" style="flex-direction:column; align-items:stretch;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="srv-info">
+                        <div class="dot" :class="c.is_throttled ? 'y' : 'on'"></div>
+                        <div class="srv-name">
+                            {{ c.name||c.id }}
+                            <span v-if="c.is_throttled" class="log-badge fatal" style="margin-left:8px;font-size:9px;">Throttled 1mbit</span>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-primary btn-sm" @click="editLimit(c)">⚙ Лимит</button>
+                        <button class="btn btn-primary btn-sm" @click="viewCfg(c.id||c.name)">📋 Конфиг</button>
+                        <button class="btn btn-danger btn-sm"  @click="delClient(c.id||c.name)">✕</button>
+                    </div>
                 </div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn btn-primary btn-sm" @click="viewCfg(c.id||c.name)">📋 Конфиг</button>
-                    <button class="btn btn-danger btn-sm"  @click="delClient(c.id||c.name)">✕</button>
+                <!-- Traffic Progress Bar -->
+                <div style="margin-top:12px; font-size:11px; color:var(--muted);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span>Трафик: {{ (c.all_time_gb||0).toFixed(2) }} GB / {{ c.limit_gb || 1024 }} GB</span>
+                        <span>{{ Math.min(100, ((c.all_time_gb||0) / (c.limit_gb || 1024)) * 100).toFixed(1) }}%</span>
+                    </div>
+                    <div style="height:6px; background:rgba(0,0,0,0.4); border-radius:3px; overflow:hidden;">
+                        <div :style="{ width: Math.min(100, ((c.all_time_gb||0) / (c.limit_gb || 1024)) * 100) + '%', background: c.is_throttled ? '#ef4444' : '#10b981', height:'100%' }"></div>
+                    </div>
                 </div>
             </div>
             <div v-if="clients.length===0" class="empty">Клиентов нет. Создайте первого!</div>
+        </div>
+    </div>
+
+    <!-- ══════════ LEADERBOARD ══════════ -->
+    <div v-show="tab==='leaderboard'">
+        <div class="row-between">
+            <h2 style="font-size:18px;font-weight:700;">🏆 Leaderboard</h2>
+            <div class="tab-toggle" style="margin:0;">
+                <button class="tab-btn" :class="{active:lbMode==='daily'}" @click="lbMode='daily'">День</button>
+                <button class="tab-btn" :class="{active:lbMode==='weekly'}" @click="lbMode='weekly'">Неделя</button>
+                <button class="tab-btn" :class="{active:lbMode==='all'}" @click="lbMode='all'">Все время</button>
+            </div>
+        </div>
+        
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div style="display:flex; padding:12px 18px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:11px; font-weight:600; color:var(--sub); text-transform:uppercase; letter-spacing:0.5px;">
+                <div style="width:50px;">#</div>
+                <div style="flex:1;">Пользователь</div>
+                <div style="width:120px; text-align:right;">Трафик</div>
+            </div>
+            <div v-for="(u, idx) in sortedLeaderboard" :key="u.id" style="display:flex; padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;">
+                <div style="width:50px; font-size:16px; font-weight:700; color:var(--muted);">
+                    <span v-if="idx===0">🥇</span>
+                    <span v-else-if="idx===1">🥈</span>
+                    <span v-else-if="idx===2">🥉</span>
+                    <span v-else>{{ idx+1 }}</span>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-weight:600; color:var(--text); font-size:14px;">{{ u.name }}</div>
+                    <div style="font-size:11px; color:var(--muted); margin-top:2px;">ID: {{ u.id }}</div>
+                </div>
+                <div style="width:120px; text-align:right;">
+                    <div style="font-size:15px; font-weight:700; color:var(--accent);">
+                        {{ lbMode === 'daily' ? u.daily_gb.toFixed(2) : lbMode === 'weekly' ? u.weekly_gb.toFixed(2) : u.all_time_gb.toFixed(2) }} GB
+                    </div>
+                </div>
+            </div>
+            <div v-if="!sortedLeaderboard.length" class="empty">Нет данных для отображения.</div>
         </div>
     </div>
 
@@ -656,6 +711,8 @@ createApp({
         const logs   = ref([]);
         const servers = ref([]);
         const clients = ref([]);
+        const leaderboard = ref([]);
+        const lbMode = ref('all');
         const sbRunning = ref(false);
         const logEl  = ref(null);
         const logEl2 = ref(null);
@@ -828,6 +885,22 @@ createApp({
             } catch { clients.value = []; }
         };
 
+        const fetchLeaderboard = async () => {
+            try {
+                const r = await fetch('/api/leaderboard');
+                const d = await r.json();
+                leaderboard.value = Array.isArray(d) ? d : [];
+            } catch { leaderboard.value = []; }
+        };
+
+        const sortedLeaderboard = computed(() => {
+            return [...leaderboard.value].sort((a, b) => {
+                if (lbMode.value === 'daily') return b.daily_gb - a.daily_gb;
+                if (lbMode.value === 'weekly') return b.weekly_gb - a.weekly_gb;
+                return b.all_time_gb - a.all_time_gb;
+            });
+        });
+
         // ── Server actions ────────────────────
         const openModal = mode => { modalMode.value = mode; showModal.value = true; };
 
@@ -900,6 +973,23 @@ createApp({
             await fetchClients();
         };
 
+        const editLimit = async c => {
+            const current = c.limit_gb || 1024;
+            const res = prompt(`Введите новый лимит трафика (в Гигабайтах) для ${c.name || c.id}:`, current);
+            if (res === null) return;
+            const num = parseFloat(res);
+            if (isNaN(num) || num < 0) { alert('Некорректное значение!'); return; }
+            try {
+                await fetch('/api/clients/' + encodeURIComponent(c.id) + '/limit', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit_gb: num })
+                });
+                await fetchClients();
+                if (tab.value === 'leaderboard') await fetchLeaderboard();
+            } catch (e) { alert('❌ ' + e.message); }
+        };
+
         const viewCfg = async id => {
             try {
                 const r = await fetch('/api/clients/' + encodeURIComponent(id) + '/config');
@@ -922,12 +1012,12 @@ createApp({
         });
 
         return {
-            tab, status, logs, servers, clients, sbRunning, logEl, logEl2,
+            tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
             showAddClient, newClientName, showCfgModal, cfgText,
             hasFatal, stripAnsi, logClass, orchStat,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg
+            createClient, delClient, viewCfg, copyCfg, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');

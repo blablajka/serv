@@ -82,6 +82,7 @@ security = HTTPBasic()
 
 PANEL_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVERS_FILE = os.path.join(PANEL_DIR, "servers.json")
+CLIENTS_DB_FILE = os.path.join(PANEL_DIR, "clients_db.json")
 CONFIG_FILE = "/etc/sing-box/config.json"
 AWG_SERVER_API = "http://127.0.0.1:8080"
 AWG_TOKEN = os.environ.get("AWG_API_TOKEN") or os.environ.get("AWG_TOKEN", "secret_token_123")
@@ -111,6 +112,19 @@ def load_servers():
             return json.load(f)
     except:
         return []
+
+def load_clients_db():
+    if not os.path.exists(CLIENTS_DB_FILE):
+        return {}
+    try:
+        with open(CLIENTS_DB_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_clients_db(data):
+    with open(CLIENTS_DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def save_servers(servers):
     with open(SERVERS_FILE, "w", encoding="utf-8") as f:
@@ -475,7 +489,31 @@ async def proxy_awg(method: str, endpoint: str, data=None):
 
 @app.get("/api/clients")
 async def get_clients(username: str = Depends(verify_credentials)):
-    return await proxy_awg("GET", "/api/clients")
+    # Получаем клиентов от awg-server
+    response = await proxy_awg("GET", "/api/clients")
+    if response.status_code != 200:
+        return response
+    
+    import json as sys_json
+    try:
+        awg_data = sys_json.loads(response.body.decode("utf-8"))
+    except:
+        return response
+        
+    db = load_clients_db()
+    if isinstance(awg_data, list):
+        for c in awg_data:
+            cid = c.get("id")
+            if cid in db:
+                c["limit_gb"] = db[cid].get("limit_gb", 1024)
+                c["all_time_gb"] = db[cid].get("all_time_gb", 0)
+                c["is_throttled"] = db[cid].get("is_throttled", False)
+            else:
+                c["limit_gb"] = 1024
+                c["all_time_gb"] = 0
+                c["is_throttled"] = False
+                
+    return awg_data
 
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
@@ -524,6 +562,54 @@ async def get_client_config(client_id: str, username: str = Depends(verify_crede
     except Exception as e:
         logger.error(f"Исключение при получении конфига {client_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/leaderboard")
+async def get_leaderboard(username: str = Depends(verify_credentials)):
+    clients_db = load_clients_db()
+    # Получаем имена от awg-server, чтобы добавить к ID
+    awg_resp = await proxy_awg("GET", "/api/clients")
+    names_map = {}
+    import json as sys_json
+    if awg_resp.status_code == 200:
+        try:
+            awg_clients = sys_json.loads(awg_resp.body.decode("utf-8"))
+            if isinstance(awg_clients, list):
+                for c in awg_clients:
+                    names_map[c.get("id")] = c.get("name", c.get("id"))
+        except:
+            pass
+
+    leaderboard = []
+    for cid, data in clients_db.items():
+        if cid == "last_rx_tx": continue
+        leaderboard.append({
+            "id": cid,
+            "name": names_map.get(cid, cid),
+            "all_time_gb": data.get("all_time_gb", 0),
+            "daily_gb": data.get("daily_gb", 0),
+            "weekly_gb": data.get("weekly_gb", 0),
+            "limit_gb": data.get("limit_gb", 1024),
+            "is_throttled": data.get("is_throttled", False)
+        })
+    
+    # Сортируем по убыванию (all_time_gb)
+    leaderboard.sort(key=lambda x: x["all_time_gb"], reverse=True)
+    return leaderboard
+
+@app.put("/api/clients/{client_id}/limit")
+async def set_client_limit(client_id: str, payload: dict, username: str = Depends(verify_credentials)):
+    limit = payload.get("limit_gb", 1024)
+    db = load_clients_db()
+    if client_id not in db:
+        db[client_id] = {}
+    db[client_id]["limit_gb"] = float(limit)
+    
+    # Если лимит увеличен, снимаем throttle (это произойдет на след. цикле оркестратора, но можно сделать флаг)
+    if db[client_id].get("all_time_gb", 0) < db[client_id]["limit_gb"]:
+        db[client_id]["is_throttled"] = False
+        
+    save_clients_db(db)
+    return {"status": "ok"}
 
 # --- Orchestrator Logic ---
 last_orchestrator_stats = {}
@@ -682,10 +768,124 @@ async def orchestrator_loop():
 
         await asyncio.sleep(10)
 
+async def client_traffic_loop():
+    """Сбор статистики локального awg0 (трафик клиентов), биллинг и шейпер 1mbit"""
+    try:
+        subprocess.run(["tc", "qdisc", "add", "dev", "awg0", "root", "handle", "1:", "htb", "default", "10"], stderr=subprocess.DEVNULL)
+        subprocess.run(["tc", "class", "add", "dev", "awg0", "parent", "1:", "classid", "1:10", "htb", "rate", "1000mbit"], stderr=subprocess.DEVNULL)
+        subprocess.run(["tc", "class", "add", "dev", "awg0", "parent", "1:", "classid", "1:20", "htb", "rate", "1mbit"], stderr=subprocess.DEVNULL)
+    except:
+        pass
+
+    last_tx_rx = {}
+
+    while True:
+        try:
+            try:
+                out = subprocess.check_output(["awg", "show", "awg0", "dump"]).decode("utf-8")
+            except:
+                await asyncio.sleep(10)
+                continue
+
+            lines = out.strip().split("\n")
+            current_tx_rx = {}
+            for line in lines[1:]:
+                p = line.split("\t")
+                if len(p) >= 8:
+                    allowed_ips = p[3]
+                    rx = int(p[5])
+                    tx = int(p[6])
+                    if allowed_ips and allowed_ips != "(none)":
+                        ip = allowed_ips.split("/")[0]
+                        current_tx_rx[ip] = rx + tx
+
+            awg_resp = await proxy_awg("GET", "/api/clients")
+            awg_clients = []
+            import json as sys_json
+            if awg_resp.status_code == 200:
+                try:
+                    awg_clients = sys_json.loads(awg_resp.body.decode("utf-8"))
+                    if not isinstance(awg_clients, list): awg_clients = []
+                except:
+                    pass
+            
+            ip_to_id = {c["address"].split("/")[0]: c["id"] for c in awg_clients if "address" in c}
+            id_to_ip = {c["id"]: c["address"].split("/")[0] for c in awg_clients if "address" in c}
+
+            db = load_clients_db()
+            changed = False
+            today = datetime.date.today().isoformat()
+            this_week = datetime.date.today().strftime("%Y-%V")
+
+            # 1. Update bytes
+            for ip, total_bytes in current_tx_rx.items():
+                cid = ip_to_id.get(ip)
+                if not cid: continue
+
+                if cid not in db:
+                    db[cid] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
+                    db[cid]["last_reset_day"] = today
+                    db[cid]["last_reset_week"] = this_week
+                    changed = True
+
+                c_db = db[cid]
+                
+                if c_db.get("last_reset_day") != today:
+                    c_db["daily_gb"] = 0.0
+                    c_db["last_reset_day"] = today
+                    changed = True
+                if c_db.get("last_reset_week") != this_week:
+                    c_db["weekly_gb"] = 0.0
+                    c_db["last_reset_week"] = this_week
+                    changed = True
+
+                last_bytes = last_tx_rx.get(ip, total_bytes)
+                if total_bytes < last_bytes:
+                    delta_bytes = total_bytes
+                else:
+                    delta_bytes = total_bytes - last_bytes
+                
+                last_tx_rx[ip] = total_bytes
+
+                if delta_bytes > 0:
+                    delta_gb = delta_bytes / (1024**3)
+                    c_db["all_time_gb"] = c_db.get("all_time_gb", 0) + delta_gb
+                    c_db["daily_gb"] = c_db.get("daily_gb", 0) + delta_gb
+                    c_db["weekly_gb"] = c_db.get("weekly_gb", 0) + delta_gb
+                    changed = True
+
+                limit = c_db.get("limit_gb", 1024)
+                is_throttled = c_db.get("is_throttled", False)
+                if c_db["all_time_gb"] >= limit and not is_throttled:
+                    c_db["is_throttled"] = True
+                    changed = True
+                elif c_db["all_time_gb"] < limit and is_throttled:
+                    c_db["is_throttled"] = False
+                    changed = True
+
+            if changed:
+                save_clients_db(db)
+
+            # 2. Re-apply tc filters
+            subprocess.run(["tc", "filter", "del", "dev", "awg0"], stderr=subprocess.DEVNULL)
+            for cid, c_db in db.items():
+                if c_db.get("is_throttled"):
+                    ip = id_to_ip.get(cid)
+                    if ip:
+                        subprocess.run(["tc", "filter", "add", "dev", "awg0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", ip, "flowid", "1:20"], stderr=subprocess.DEVNULL)
+
+        except Exception as e:
+            logger.error(f"Client traffic loop error: {e}")
+
+        await asyncio.sleep(10)
+
+
 # --- App Lifecycle ---
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Запуск Orchestrator Loop и Client Traffic Loop...")
     asyncio.create_task(orchestrator_loop())
+    asyncio.create_task(client_traffic_loop())
 
 if __name__ == "__main__":
     import uvicorn
