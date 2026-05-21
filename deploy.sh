@@ -198,7 +198,9 @@ sysctl -p /etc/sysctl.d/99-vpn.conf > /dev/null 2>&1
 cat <<EOF > /opt/setup_routing.sh
 #!/bin/bash
 iptables -t nat -A POSTROUTING -s 10.255.0.0/24 -o tun0 -j MASQUERADE || true
+iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -o tun0 -j MASQUERADE || true
 ip rule add from 10.255.0.0/24 lookup 100 || true
+ip rule add from 10.99.0.0/24 lookup 100 || true
 ip route add default dev tun0 table 100 || true
 EOF
 chmod +x /opt/setup_routing.sh
