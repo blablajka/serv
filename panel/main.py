@@ -147,12 +147,24 @@ async def delete_server(name: str, username: str = Depends(verify_credentials)):
 async def auto_install_server(data: AutoInstallModel, username: str = Depends(verify_credentials)):
     logger.info(f"Начинаем автоустановку на {data.ip}...")
 
-    def run_ssh(ssh_client, cmd, timeout=300):
-        """Выполнить команду через SSH, вернуть (stdout, stderr, exit_code)"""
+    def run_ssh(ssh_client, cmd, timeout=300, sudo_pass=None):
+        """Выполнить SSH-команду.
+        sudo_pass — пишем в stdin для 'sudo -S'. Sudo кэширует credentials,
+        поэтому достаточно один раз. Если пользователь root — sudo не нужен.
+        """
         stdin, stdout, stderr = ssh_client.exec_command(cmd, timeout=timeout)
+        if sudo_pass is not None:
+            try:
+                stdin.write(sudo_pass + "\n")
+                stdin.flush()
+            except Exception:
+                pass
         exit_code = stdout.channel.recv_exit_status()
         out = stdout.read().decode("utf-8", errors="replace").strip()
         err = stderr.read().decode("utf-8", errors="replace").strip()
+        # Убираем строки sudo-промпта из вывода
+        err = "\n".join(l for l in err.splitlines()
+                        if "[sudo]" not in l and "password for" not in l.lower())
         return out, err, exit_code
 
     try:
@@ -162,37 +174,60 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
                     password=data.ssh_password, timeout=30)
         logger.info(f"SSH подключение к {data.ip} установлено")
 
+        sp = data.ssh_password  # sudo_pass shorthand
+
+        # Определяем: мы root или нет?
+        out_uid, _, _ = run_ssh(ssh, "id -u")
+        is_root = out_uid.strip() == "0"
+        logger.info(f"Пользователь: {'root' if is_root else data.ssh_user + ' (non-root, используем sudo -S)'}")
+
+        # Если не root — кэшируем sudo credentials сразу
+        if not is_root:
+            out_sv, err_sv, code_sv = run_ssh(ssh, "sudo -S -v 2>&1", sudo_pass=sp)
+            if code_sv != 0 and "incorrect" in (out_sv + err_sv).lower():
+                raise Exception(f"sudo: неверный пароль для {data.ssh_user}. Проверьте SSH-пароль.")
+            if code_sv != 0 and "not allowed" in (out_sv + err_sv).lower():
+                raise Exception(f"Пользователь {data.ssh_user} не имеет прав sudo. Подключитесь как root.")
+            logger.info("sudo credentials кэшированы")
+
+        def S(cmd):
+            """Обернуть в sudo -S если не root"""
+            return cmd if is_root else f"sudo -S {cmd}"
+
         # Шаг 1: Установка AmneziaWG через PPA (Ubuntu 22.04)
         logger.info("Устанавливаем AmneziaWG на зарубежный сервер...")
         install_cmds = [
-            # Ждём пока отпустят dpkg-лок (авто-обновления и т.п.)
-            "while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo 'Ждём dpkg...'; sleep 5; done",
-            "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y",
-            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common",
-            "sudo add-apt-repository ppa:amnezia/ppa -y",
-            "sudo DEBIAN_FRONTEND=noninteractive apt-get update -y",
-            "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools",
-            "sudo mkdir -p /etc/amnezia/amneziawg",
+            # Ждём освобождения dpkg-лока (unattended-upgrades и т.п.)
+            S("bash -c 'while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo Waiting dpkg...; sleep 5; done'"),
+            S("DEBIAN_FRONTEND=noninteractive apt-get update -y"),
+            S("DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common"),
+            S("add-apt-repository ppa:amnezia/ppa -y"),
+            S("DEBIAN_FRONTEND=noninteractive apt-get update -y"),
+            S("DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools"),
+            S("mkdir -p /etc/amnezia/amneziawg"),
         ]
         for cmd in install_cmds:
-            out, err, code = run_ssh(ssh, cmd, timeout=600)
-            logger.info(f"[{code}] {cmd[:70]}")
+            out, err, code = run_ssh(ssh, cmd, timeout=600, sudo_pass=sp)
+            logger.info(f"[{code}] {cmd[:80]}")
             if code != 0 and "amneziawg" in cmd and "install" in cmd:
                 raise Exception(f"Ошибка установки AmneziaWG: {err[:500]}")
 
-
         # Шаг 2: Генерация серверных ключей на зарубежном сервере
         logger.info("Генерируем серверные ключи на зарубежном сервере...")
-        out, err, code = run_ssh(ssh, "sudo awg genkey | sudo tee /etc/amnezia/amneziawg/server_private.key | sudo awg pubkey | sudo tee /etc/amnezia/amneziawg/server_public.key")
+        if is_root:
+            gen_srv = "awg genkey | tee /etc/amnezia/amneziawg/server_private.key | awg pubkey | tee /etc/amnezia/amneziawg/server_public.key"
+        else:
+            gen_srv = "awg genkey | sudo -S tee /etc/amnezia/amneziawg/server_private.key | awg pubkey | sudo -S tee /etc/amnezia/amneziawg/server_public.key"
+        out, err, code = run_ssh(ssh, gen_srv, sudo_pass=sp)
         if code != 0:
             raise Exception(f"Ошибка генерации серверных ключей: {err}")
 
-        out, err, code = run_ssh(ssh, "sudo cat /etc/amnezia/amneziawg/server_private.key")
+        out, err, code = run_ssh(ssh, S("cat /etc/amnezia/amneziawg/server_private.key"), sudo_pass=sp)
         if not out:
             raise Exception("Серверный приватный ключ пустой!")
         server_private_key = out.strip()
 
-        out, err, code = run_ssh(ssh, "sudo cat /etc/amnezia/amneziawg/server_public.key")
+        out, err, code = run_ssh(ssh, S("cat /etc/amnezia/amneziawg/server_public.key"), sudo_pass=sp)
         if not out:
             raise Exception("Серверный публичный ключ пустой!")
         server_public_key = out.strip()
@@ -261,22 +296,22 @@ async def auto_install_server(data: AutoInstallModel, username: str = Depends(ve
         with sftp.file('/tmp/awg0.conf', 'w') as f:
             f.write(wg_conf)
         sftp.close()
-        run_ssh(ssh, "sudo mv /tmp/awg0.conf /etc/amnezia/amneziawg/awg0.conf")
-        run_ssh(ssh, "sudo chmod 600 /etc/amnezia/amneziawg/awg0.conf")
+        run_ssh(ssh, S("mv /tmp/awg0.conf /etc/amnezia/amneziawg/awg0.conf"), sudo_pass=sp)
+        run_ssh(ssh, S("chmod 600 /etc/amnezia/amneziawg/awg0.conf"), sudo_pass=sp)
 
-        # Шаг 6: Включаем IP-форвардинг и запускаем AWG
-        run_ssh(ssh, "echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-vpn.conf && sudo sysctl -p /etc/sysctl.d/99-vpn.conf")
-        run_ssh(ssh, "sudo systemctl stop awg-quick@awg0 2>/dev/null || true")
-        run_ssh(ssh, "sudo systemctl enable --now awg-quick@awg0")
-        run_ssh(ssh, f"sudo ufw allow {wg_port}/udp 2>/dev/null || true")
+        # Шаг 6: IP-форвардинг и запуск AWG
+        run_ssh(ssh, S("bash -c \"echo net.ipv4.ip_forward=1 > /etc/sysctl.d/99-vpn.conf && sysctl -p /etc/sysctl.d/99-vpn.conf\""), sudo_pass=sp)
+        run_ssh(ssh, S("systemctl stop awg-quick@awg0 2>/dev/null"), sudo_pass=sp)
+        run_ssh(ssh, S("systemctl enable --now awg-quick@awg0"), sudo_pass=sp)
+        run_ssh(ssh, S(f"bash -c \"ufw allow {wg_port}/udp 2>/dev/null || true\""), sudo_pass=sp)
         run_ssh(ssh, "rm -f /tmp/client_priv.key /tmp/client_pub.key")
 
-        out, err, code = run_ssh(ssh, "sudo systemctl is-active awg-quick@awg0")
+        out, err, code = run_ssh(ssh, S("systemctl is-active awg-quick@awg0"), sudo_pass=sp)
         logger.info(f"Статус awg0: '{out}' (код {code})")
         ssh.close()
 
-        if out != "active":
-            raise Exception(f"awg-quick@awg0 не запустился! Проверьте: journalctl -u awg-quick@awg0")
+        if out.strip() != "active":
+            raise Exception(f"awg-quick@awg0 не запустился! Статус: '{out}'. Проверьте: journalctl -u awg-quick@awg0 -n 10")
 
         # Шаг 7: Сохраняем сервер и перезапускаем sing-box
         server = {
