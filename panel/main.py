@@ -438,9 +438,28 @@ async def get_clients(username: str = Depends(verify_credentials)):
 
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
+    import uuid, re
     data = await request.json()
     logger.info(f"Поступил запрос на создание клиента: {data}")
-    return await proxy_awg("POST", "/api/clients", data)
+
+    # awg-server требует поле "id" (name он не поддерживает)
+    # генерируем id из name (слаг) или случайный UUID
+    if not data.get("id"):
+        name = data.get("name", "")
+        if name:
+            slug = re.sub(r"[^a-zA-Z0-9_-]", "-", name).strip("-").lower()
+            slug = slug[:40] or "client"
+            data["id"] = f"{slug}-{uuid.uuid4().hex[:8]}"
+        else:
+            data["id"] = str(uuid.uuid4())
+
+    # awg-server не имеет поля name — убираем чтобы не было лишних полей
+    payload = {"id": data["id"]}
+    if data.get("awg_params"):
+        payload["awg_params"] = data["awg_params"]
+
+    logger.info(f"Отправляем в awg-server: {payload}")
+    return await proxy_awg("POST", "/api/clients", payload)
 
 @app.delete("/api/clients/{client_id}")
 async def delete_client(client_id: str, username: str = Depends(verify_credentials)):

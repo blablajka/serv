@@ -753,15 +753,22 @@ createApp({
 
         // ── Client actions ────────────────────
         const createClient = async () => {
-            if (!newClientName.value) return;
-            await fetch('/api/clients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newClientName.value })
-            });
-            showAddClient.value = false;
-            newClientName.value = '';
-            await fetchClients();
+            if (!newClientName.value) { alert('Введите имя клиента'); return; }
+            try {
+                const r = await fetch('/api/clients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newClientName.value })
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    showAddClient.value = false;
+                    newClientName.value = '';
+                    await fetchClients();
+                } else {
+                    alert('❌ Ошибка создания клиента: ' + (d.error || d.detail || JSON.stringify(d)));
+                }
+            } catch (e) { alert('❌ Сетевая ошибка: ' + e.message); }
         };
 
         const delClient = async id => {
