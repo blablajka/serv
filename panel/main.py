@@ -469,7 +469,7 @@ async def delete_client(client_id: str, username: str = Depends(verify_credentia
 @app.get("/api/clients/{client_id}/config")
 async def get_client_config(client_id: str, username: str = Depends(verify_credentials)):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
-    url = f"{AWG_SERVER_API}/api/clients/{client_id}/config"
+    url = f"{AWG_SERVER_API}/api/clients/{client_id}/configuration"
     logger.info(f"Запрос конфига для клиента {client_id} от awg-server")
     try:
         async with httpx.AsyncClient() as client:

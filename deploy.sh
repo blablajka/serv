@@ -84,8 +84,13 @@ if grep -qi "ubuntu" /etc/os-release; then
     apt install -y software-properties-common || handle_error $LINENO
     add-apt-repository ppa:amnezia/ppa -y || true
     apt update -y || handle_error $LINENO
-    # Ставим linux-headers и DKMS-модуль (нужен для awg-server на bridge)
-    apt install -y linux-headers-$(uname -r) amneziawg-dkms amneziawg-tools || handle_error $LINENO
+    # Нужны ОБА пакета хэдеров: linux-headers-X.X.X-generic И linux-headers-X.X.X
+    # Иначе DKMS не находит заголовки и не компилирует модуль
+    KVER=$(uname -r)
+    KVER_BASE=$(echo "$KVER" | sed 's/-generic$//')
+    apt install -y linux-headers-${KVER} linux-headers-${KVER_BASE} amneziawg-dkms amneziawg-tools || true
+    # Если зависимости сломаны — принудительная переустановка
+    apt install --reinstall -y linux-headers-${KVER} linux-headers-${KVER_BASE} 2>/dev/null || true
 else
     log_info "Debian: компилируем AmneziaWG из исходников..."
     apt install -y linux-headers-$(uname -r) build-essential dkms git || handle_error $LINENO
@@ -100,8 +105,12 @@ else
     fi
 fi
 
-# Загружаем модуль ядра сейчас и добавляем в автозагрузку
-modprobe amneziawg || log_error "Не удалось загрузить amneziawg — перезагрузка может помочь"
+# Загружаем модуль ядра и добавляем в автозагрузку
+if ! modprobe amneziawg 2>/dev/null; then
+    log_info "Первая попытка modprobe не удалась, пробуем пересобрать DKMS..."
+    dkms install amneziawg/1.0.0 -k $(uname -r) 2>/dev/null || true
+    modprobe amneziawg || log_error "Не удалось загрузить amneziawg — возможно нужна перезагрузка"
+fi
 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
 log_success "AmneziaWG установлен, модуль ядра загружен."
 
