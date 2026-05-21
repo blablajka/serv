@@ -681,7 +681,7 @@ createApp({
             maintainAspectRatio: false,
             animation: { duration: 400 },
             elements: { point: { radius: 3, hitRadius: 10, hoverRadius: 5 }, line: { tension: 0.3, borderWidth: 2 } },
-            plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+            plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { title: () => null } } },
             scales: {
                 x: { display: false },
                 y: { display: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
