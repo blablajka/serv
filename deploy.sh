@@ -75,32 +75,35 @@ apt update -y || handle_error $LINENO
 apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential wireguard-tools || handle_error $LINENO
 log_success "Зависимости установлены."
 
-# 2. Установка AmneziaWG
-log_info "Установка AmneziaWG..."
-if ! command -v awg &> /dev/null; then
-    if grep -qi "ubuntu" /etc/os-release; then
-        log_info "Обнаружена Ubuntu, используем официальный PPA..."
-        apt install -y software-properties-common || handle_error $LINENO
-        add-apt-repository ppa:amnezia/ppa -y || true
-        apt update -y || handle_error $LINENO
-        apt install -y amneziawg-dkms amneziawg-tools || handle_error $LINENO
-    else
-        log_info "Обнаружен Debian, компилируем AmneziaWG из исходников (это займет пару минут)..."
-        apt install -y linux-headers-$(uname -r) build-essential dkms git || handle_error $LINENO
-        
-        # Компиляция модуля ядра
+# 2. Установка AmneziaWG (инструменты + DKMS-модуль ядра)
+# ВАЖНО: awg-server требует модуль ядра amneziawg на bridge-сервере!
+log_info "Установка AmneziaWG (модуль ядра + инструменты)..."
+
+if grep -qi "ubuntu" /etc/os-release; then
+    log_info "Ubuntu: устанавливаем из PPA amnezia..."
+    apt install -y software-properties-common || handle_error $LINENO
+    add-apt-repository ppa:amnezia/ppa -y || true
+    apt update -y || handle_error $LINENO
+    # Ставим linux-headers и DKMS-модуль (нужен для awg-server на bridge)
+    apt install -y linux-headers-$(uname -r) amneziawg-dkms amneziawg-tools || handle_error $LINENO
+else
+    log_info "Debian: компилируем AmneziaWG из исходников..."
+    apt install -y linux-headers-$(uname -r) build-essential dkms git || handle_error $LINENO
+    if ! command -v awg &> /dev/null; then
         git clone https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git /tmp/awg-kernel
         cd /tmp/awg-kernel
         make module && make install || handle_error $LINENO
-        
-        # Компиляция утилит (awg)
         git clone https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/awg-tools
         cd /tmp/awg-tools/src
         make && make install || handle_error $LINENO
         cd /opt/smart_vpn || cd /tmp/smart_vpn_install
     fi
 fi
-log_success "AmneziaWG установлен."
+
+# Загружаем модуль ядра сейчас и добавляем в автозагрузку
+modprobe amneziawg || log_error "Не удалось загрузить amneziawg — перезагрузка может помочь"
+echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
+log_success "AmneziaWG установлен, модуль ядра загружен."
 
 # 3. Установка Go
 log_info "Проверка и установка Go..."
