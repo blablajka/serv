@@ -46,7 +46,7 @@ PANEL_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVERS_FILE = os.path.join(PANEL_DIR, "servers.json")
 CONFIG_FILE = "/etc/sing-box/config.json"
 AWG_SERVER_API = "http://127.0.0.1:8080"
-AWG_TOKEN = os.environ.get("AWG_TOKEN", "")
+AWG_TOKEN = os.environ.get("AWG_API_TOKEN") or os.environ.get("AWG_TOKEN", "secret_token_123")
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin")
 CLASH_API_URL = "http://127.0.0.1:9090"
@@ -434,23 +434,23 @@ async def proxy_awg(method: str, endpoint: str, data=None):
 
 @app.get("/api/clients")
 async def get_clients(username: str = Depends(verify_credentials)):
-    return await proxy_awg("GET", "/clients")
+    return await proxy_awg("GET", "/api/clients")
 
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
     data = await request.json()
     logger.info(f"Поступил запрос на создание клиента: {data}")
-    return await proxy_awg("POST", "/clients", data)
+    return await proxy_awg("POST", "/api/clients", data)
 
 @app.delete("/api/clients/{client_id}")
 async def delete_client(client_id: str, username: str = Depends(verify_credentials)):
     logger.info(f"Поступил запрос на удаление клиента: {client_id}")
-    return await proxy_awg("DELETE", f"/clients/{client_id}")
+    return await proxy_awg("DELETE", f"/api/clients/{client_id}")
 
 @app.get("/api/clients/{client_id}/config")
 async def get_client_config(client_id: str, username: str = Depends(verify_credentials)):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
-    url = f"{AWG_SERVER_API}/clients/{client_id}/config"
+    url = f"{AWG_SERVER_API}/api/clients/{client_id}/config"
     logger.info(f"Запрос конфига для клиента {client_id} от awg-server")
     try:
         async with httpx.AsyncClient() as client:
