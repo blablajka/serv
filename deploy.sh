@@ -209,6 +209,7 @@ cat <<EOF > /etc/systemd/system/vpn-routing.service
 [Unit]
 Description=VPN Routing Setup
 After=network.target sing-box.service awg-server.service
+PartOf=sing-box.service
 
 [Service]
 Type=oneshot
