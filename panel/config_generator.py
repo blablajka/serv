@@ -102,7 +102,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {"ip_cidr": ["77.88.8.8/32"], "outbound": "direct"},
-                {"domain_suffix": ["vk.com", "tbank.ru", "tinkoff.ru", "ya.ru", "yandex.ru", "mail.ru", "gosuslugi.ru", "avito.ru", "ozon.ru", "wildberries.ru", "kinopoisk.ru"], "outbound": "direct"},
+                {"domain_suffix": ["vk.com", "tbank.ru", "tinkoff.ru", "ya.ru", "yandex.ru", "mail.ru", "gosuslugi.ru", "avito.ru", "ozon.ru", "wildberries.ru", "kinopoisk.ru", "2ip.ru"], "outbound": "direct"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
