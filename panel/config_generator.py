@@ -75,8 +75,13 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "log": {"level": "info", "timestamp": True},
         "dns": {
             "servers": [
-                {"tag": "dns-google", "type": "udp", "server": "8.8.8.8"},
+                {"tag": "dns-yandex", "type": "udp", "server": "77.88.8.8", "detour": "direct"},
+                {"tag": "dns-google", "type": "udp", "server": "8.8.8.8", "detour": "Select-Outbound"},
                 {"tag": "dns-local", "type": "local"}
+            ],
+            "rules": [
+                {"rule_set": ["geosite-ru"], "server": "dns-yandex"},
+                {"domain_suffix": ["vk.com"], "server": "dns-yandex"}
             ],
             "final": "dns-google",
             "strategy": "ipv4_only"
@@ -94,9 +99,27 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "endpoints": endpoints,
         "outbounds": outbounds,
         "route": {
+            "rule_set": [
+                {
+                    "tag": "geosite-ru",
+                    "type": "remote",
+                    "format": "binary",
+                    "url": "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite-ru.srs",
+                    "download_detour": "Select-Outbound"
+                },
+                {
+                    "tag": "geoip-ru",
+                    "type": "remote",
+                    "format": "binary",
+                    "url": "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip-ru.srs",
+                    "download_detour": "Select-Outbound"
+                }
+            ],
             "rules": [
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
+                {"ip_cidr": ["77.88.8.8/32"], "outbound": "direct"},
+                {"rule_set": ["geosite-ru", "geoip-ru"], "outbound": "direct"},
                 {"domain_suffix": ["vk.com"], "outbound": "direct"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
