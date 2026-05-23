@@ -97,6 +97,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "rules": [
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
+                {"domain_suffix": ["vk.com"], "outbound": "direct"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
