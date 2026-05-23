@@ -197,6 +197,12 @@ sysctl -p /etc/sysctl.d/99-vpn.conf > /dev/null 2>&1
 
 cat <<EOF > /opt/setup_routing.sh
 #!/bin/bash
+# Ждем, пока sing-box создаст интерфейс tun0 (до 10 секунд)
+for i in {1..10}; do
+    ip link show tun0 >/dev/null 2>&1 && break
+    sleep 1
+done
+
 iptables -t nat -A POSTROUTING -s 10.255.0.0/24 -o tun0 -j MASQUERADE || true
 iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -o tun0 -j MASQUERADE || true
 ip rule add from 10.255.0.0/24 lookup 100 || true
