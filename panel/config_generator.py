@@ -100,10 +100,16 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "route": {
             "rule_set": [
                 {
-                    "tag": "geoip-ru",
+                    "tag": "geoip-ru-whitelist",
                     "type": "local",
                     "format": "binary",
-                    "path": "/opt/smart_vpn/panel/rules/geoip-ru.srs"
+                    "path": "/opt/smart_vpn/panel/rules/geoip-ru-whitelist.srs"
+                },
+                {
+                    "tag": "geoip-ru-blocked",
+                    "type": "local",
+                    "format": "binary",
+                    "path": "/opt/smart_vpn/panel/rules/geoip-ru-blocked.srs"
                 }
             ],
             "rules": [
@@ -111,7 +117,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {"port": 53, "action": "hijack-dns"},
                 {"ip_cidr": ["77.88.8.8/32"], "outbound": "direct"},
                 {"domain_suffix": ["vk.com", "tbank.ru", "tinkoff.ru", "ya.ru", "yandex.ru", "mail.ru", "gosuslugi.ru", "avito.ru", "ozon.ru", "wildberries.ru", "kinopoisk.ru", "2ip.ru"], "outbound": "direct"},
-                {"rule_set": ["geoip-ru"], "outbound": "direct"},
+                {"rule_set": ["geoip-ru-blocked"], "outbound": endpoints[0]["tag"]},
+                {"rule_set": ["geoip-ru-whitelist"], "outbound": "direct"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
