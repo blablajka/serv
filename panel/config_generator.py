@@ -75,11 +75,12 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "log": {"level": "info", "timestamp": True},
         "dns": {
             "servers": [
-                {"tag": "dns-yandex", "type": "udp", "server": "77.88.8.8", "detour": "direct"},
+                {"tag": "dns-yandex", "type": "https", "server": "https://common.dot.dns.yandex.net/dns-query", "detour": "direct"},
                 {"tag": "dns-google", "type": "udp", "server": "8.8.8.8", "detour": "Select-Outbound"},
                 {"tag": "dns-local", "type": "local"}
             ],
             "rules": [
+                {"domain_suffix": ["vk.com", "vk.ru", "vkvideo.ru", "vk-portal.net", "userapi.com", "gosuslugi.ru", "esia.gosuslugi.ru"], "server": "dns-yandex"},
                 {"rule_set": ["geosite-category-ru"], "server": "dns-yandex"}
             ],
             "final": "dns-google",
@@ -115,6 +116,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "rules": [
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
+                {"domain_suffix": ["vk.com", "vk.ru", "vkvideo.ru", "vk-portal.net", "userapi.com", "gosuslugi.ru", "esia.gosuslugi.ru"], "outbound": "direct"},
                 {"rule_set": ["geosite-category-ru", "geoip-ru"], "outbound": "direct"},
                 {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16", "77.88.8.8/32"], "outbound": "direct"}
             ],
