@@ -80,9 +80,9 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {"tag": "dns-local", "type": "local"}
             ],
             "rules": [
-                {"rule_set": ["geosite-ru-blocked"], "server": "dns-google"}
+                {"rule_set": ["geosite-category-ru"], "server": "dns-yandex"}
             ],
-            "final": "dns-yandex",
+            "final": "dns-google",
             "strategy": "ipv4_only"
         },
         "inbounds": [
@@ -100,25 +100,26 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "route": {
             "rule_set": [
                 {
-                    "tag": "geosite-ru-blocked",
+                    "tag": "geosite-category-ru",
                     "type": "local",
                     "format": "binary",
-                    "path": "/opt/smart_vpn/panel/rules/geosite-ru-blocked.srs"
+                    "path": "/opt/smart_vpn/panel/rules/geosite-category-ru.srs"
                 },
                 {
-                    "tag": "geoip-ru-blocked",
+                    "tag": "geoip-ru",
                     "type": "local",
                     "format": "binary",
-                    "path": "/opt/smart_vpn/panel/rules/geoip-ru-blocked.srs"
+                    "path": "/opt/smart_vpn/panel/rules/geoip-ru.srs"
                 }
             ],
             "rules": [
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
-                {"rule_set": ["geosite-ru-blocked", "geoip-ru-blocked"], "outbound": endpoints[0]["tag"]}
+                {"rule_set": ["geosite-category-ru", "geoip-ru"], "outbound": "direct"},
+                {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16", "77.88.8.8/32"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
-            "final": "direct",
+            "final": "Select-Outbound",
             "default_domain_resolver": "dns-local"
         },
         "experimental": {
