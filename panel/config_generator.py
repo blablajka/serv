@@ -173,7 +173,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "type": "tun",
                 "tag": "tun-in",
                 "interface_name": "tun0",
-                "inet4_address": "10.255.0.1/24",
+                "address": ["10.255.0.1/24"],
                 "auto_route": True,
                 "strict_route": True,
                 "endpoint_independent_nat": True,
