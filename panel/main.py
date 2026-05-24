@@ -521,6 +521,7 @@ async def get_clients(username: str = Depends(verify_credentials)):
     return awg_data
 
 last_client_creation = {}
+client_creation_lock = asyncio.Lock()
 
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
@@ -528,12 +529,13 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     import uuid, re, time
     data = await request.json()
     
-    # Защита от дублей (двойных кликов)
-    name = data.get("name", "")
-    now = time.time()
-    if name in last_client_creation and (now - last_client_creation[name]) < 5:
-        return JSONResponse(content={"error": "Двойной клик заблокирован. Подождите пару секунд."}, status_code=429)
-    last_client_creation[name] = now
+    async with client_creation_lock:
+        # Защита от дублей (двойных кликов)
+        name = data.get("name", "")
+        now = time.time()
+        if name in last_client_creation and (now - last_client_creation[name]) < 5:
+            return JSONResponse(content={"status": "ok", "message": "Duplicate ignored"}, status_code=200)
+        last_client_creation[name] = now
     
     logger.info(f"Поступил запрос на создание клиента: {data}")
 
