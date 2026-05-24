@@ -76,18 +76,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "dns": {
             "servers": [
                 {
-                    "tag": "dns-yandex",
-                    "type": "https",
-                    "server": "77.88.8.8",
-                    "server_port": 443,
-                    "path": "/dns-query",
-                    "tls": {
-                        "enabled": True,
-                        "server_name": "common.dot.dns.yandex.net"
-                    },
-                    "detour": "direct"
-                },
-                {
                     "tag": "dns-google",
                     "type": "https",
                     "server": "8.8.8.8",
@@ -101,10 +89,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 },
                 {"tag": "dns-local", "type": "local"}
             ],
-            "rules": [
-                {"domain_suffix": ["vk.com", "vk.ru", "vkvideo.ru", "vk-portal.net", "userapi.com", "gosuslugi.ru", "esia.gosuslugi.ru"], "server": "dns-yandex"},
-                {"rule_set": ["geosite-category-ru"], "server": "dns-yandex"}
-            ],
+            "rules": [],
             "final": "dns-google",
             "strategy": "ipv4_only"
         },
@@ -123,26 +108,10 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "endpoints": endpoints,
         "outbounds": outbounds,
         "route": {
-            "rule_set": [
-                {
-                    "tag": "geosite-category-ru",
-                    "type": "local",
-                    "format": "binary",
-                    "path": "/opt/smart_vpn/panel/rules/geosite-category-ru.srs"
-                },
-                {
-                    "tag": "geoip-ru",
-                    "type": "local",
-                    "format": "binary",
-                    "path": "/opt/smart_vpn/panel/rules/geoip-ru.srs"
-                }
-            ],
             "rules": [
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
-                {"domain_suffix": ["vk.com", "vk.ru", "vkvideo.ru", "vk-portal.net", "userapi.com", "gosuslugi.ru", "esia.gosuslugi.ru"], "outbound": "direct"},
-                {"rule_set": ["geosite-category-ru", "geoip-ru"], "outbound": "direct"},
-                {"ip_cidr": ["77.88.0.0/16", "5.255.0.0/16", "213.180.0.0/16", "77.88.8.8/32"], "outbound": "direct"}
+                {"domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"], "outbound": "direct"}
             ],
             "auto_detect_interface": True,
             "final": "Select-Outbound",
