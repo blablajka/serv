@@ -152,6 +152,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "listen": "::",
                 "listen_port": 8443,
                 "users": hy2_users,
+                "up_mbps": 1000,
+                "down_mbps": 1000,
                 "tls": {
                     "enabled": True,
                     "server_name": "bing.com",
