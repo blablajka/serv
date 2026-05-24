@@ -1026,18 +1026,37 @@ createApp({
             } catch (e) { alert('❌ ' + e.message); }
         };
 
+        const copyTextFallback = (text, msg) => {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => alert(msg)).catch(err => console.error('Copy failed', err));
+            } else {
+                let textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert(msg);
+                } catch (err) {
+                    console.error('Fallback copy failed', err);
+                }
+                textArea.remove();
+            }
+        };
+
         const copyCfg = () => {
-            navigator.clipboard.writeText(cfgText.value);
-            alert('Скопировано AWG!');
+            copyTextFallback(cfgText.value, 'Скопировано AWG!');
         };
         const copyHy2 = () => {
-            navigator.clipboard.writeText(hy2Text.value);
-            alert('Скопировано Hysteria2!');
+            copyTextFallback(hy2Text.value, 'Скопировано Hysteria2!');
         };
         const copyMihomo = () => {
             const url = window.location.protocol + "//" + window.location.host + "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
-            navigator.clipboard.writeText(url);
-            alert('Ссылка на подписку скопирована: ' + url);
+            copyTextFallback(url, 'Ссылка на подписку скопирована: ' + url);
         };
         const downloadMihomo = () => {
             const url = "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
