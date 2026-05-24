@@ -161,11 +161,16 @@ class AutoInstallModel(BaseModel):
     limit_users: int = 5
 
 # --- API Endpoints ---
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def index(username: str = Depends(verify_credentials)):
     index_path = os.path.join(PANEL_DIR, "static", "index.html")
     async with aiofiles.open(index_path, "r", encoding="utf-8") as f:
-        return await f.read()
+        html = await f.read()
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 @app.get("/api/servers")
 async def get_servers(username: str = Depends(verify_credentials)):
