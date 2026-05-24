@@ -71,57 +71,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "default": selector_outbounds[-1] if len(selector_outbounds) > 1 else "direct"
     })
 
-    if not os.path.exists("/etc/sing-box/hy2.crt"):
-        os.system('openssl req -x509 -newkey rsa:4096 -keyout /etc/sing-box/hy2.key -out /etc/sing-box/hy2.crt -days 3650 -nodes -subj "/CN=bing.com" >/dev/null 2>&1')
-
-    hy2_users = []
-    clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
-    try:
-        if os.path.exists(clients_db_path):
-            with open(clients_db_path, "r", encoding="utf-8") as f:
-                clients_db = json.load(f)
-                for cid, data in clients_db.items():
-                    if "hy2_password" in data:
-                        hy2_users.append({"password": data["hy2_password"]})
-    except Exception as e:
-        print("Error loading clients_db for hy2_users:", e)
-        
-    if not hy2_users:
-        hy2_users.append({"password": "testpassword123"})
-        
-    masq_dir = "/opt/smart_vpn/masq"
-    os.makedirs(masq_dir, exist_ok=True)
-    index_html_path = os.path.join(masq_dir, "index.html")
-    if not os.path.exists(index_html_path):
-        with open(index_html_path, "w", encoding="utf-8") as f:
-            f.write("""<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <title>Blue Orb File Storage</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; background: radial-gradient(circle at 20% 20%, #1f2937 0, #020617 55%, #000 100%); color: #e5e7eb; }
-    .card { max-width: 480px; padding: 32px 28px; background: rgba(15, 23, 42, 0.92); border-radius: 18px; border: 1px solid rgba(148, 163, 184, 0.4); text-align: left; }
-    h1 { font-size: 24px; margin-bottom: 4px; }
-    .subtitle { font-size: 14px; color: #9ca3af; margin-bottom: 16px; }
-    .meta { font-size: 13px; color: #9ca3af; line-height: 1.5; }
-    .footer { margin-top: 18px; font-size: 12px; color: #6b7280; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Blue Orb File Storage</h1>
-    <p class="subtitle">Надёжное файловое хранилище c ограниченным доступом.</p>
-    <p class="meta">Доступ к хранилищу предусмотрен только через авторизованные клиенты и внутренние сервисы. Публичный веб‑интерфейс не предоставляется.</p>
-    <p class="footer">© 2026 Blue Orb</p>
-  </div>
-</body>
-</html>""")
-    
-    masquerade_url = f"file://{masq_dir}"
-
     config = {
         "log": {"level": "info", "timestamp": True},
         "dns": {
@@ -178,22 +127,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "strict_route": True,
                 "endpoint_independent_nat": True,
                 "stack": "system"
-            },
-            {
-                "type": "hysteria2",
-                "tag": "hy2-in",
-                "listen": "::",
-                "listen_port": 8443,
-                "users": hy2_users,
-                "up_mbps": 1000,
-                "down_mbps": 1000,
-                "masquerade": masquerade_url,
-                "tls": {
-                    "enabled": True,
-                    "server_name": "blueorb.online",
-                    "certificate_path": "/etc/letsencrypt/live/blueorb.online/fullchain.pem",
-                    "key_path": "/etc/letsencrypt/live/blueorb.online/privkey.pem"
-                }
             }
         ],
         "endpoints": endpoints,

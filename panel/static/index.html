@@ -697,29 +697,8 @@
         <div class="modal" style="width: 800px; max-width: 90vw;">
             <div class="modal-title">📋 Конфигурация клиента</div>
             
-            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
-                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Hysteria 2 Данные</h3>
-                    <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:14px;color:#fff; flex: 1;">
-                        <div style="margin-bottom: 12px;"><b>Домен:</b> <span style="color:#4ade80;">{{ hy2Host || 'blueorb.online' }}</span></div>
-                        <div style="margin-bottom: 16px;"><b>Пароль:</b> <span style="color:#4ade80;">{{ hy2Password || 'Не сгенерирован (старый клиент)' }}</span></div>
-                        
-                        <div v-if="hy2Host && hy2Password" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
-                            <div style="font-size: 12px; margin-bottom: 8px; color: #aaa;">Mihomo (Clash Meta) Подписка:</div>
-                            <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-success" style="flex: 1; justify-content:center; font-size:12px;" @click="copyMihomo">📋 Ссылка</button>
-                                <button class="btn btn-success" style="flex: 1; justify-content:center; font-size:12px;" @click="downloadMihomo">⬇ Скачать</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
-                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">AmneziaWG</h3>
-                    <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;flex: 1;">{{ cfgText }}</pre>
-                    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyCfg">📋 Скопировать AWG</button>
-                </div>
-            </div>
+            <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ cfgText }}</pre>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px;" @click="copyCfg">📋 Скопировать</button>
         </div>
     </div>
 
@@ -747,9 +726,6 @@ createApp({
         const showAddClient = ref(false);
         const showCfgModal  = ref(false);
         const cfgText       = ref('');
-        const hy2Text       = ref('');
-        const hy2Password   = ref('');
-        const hy2Host       = ref('');
         const newClientName = ref('');
         const currentCfgId  = ref('');
 
@@ -1026,9 +1002,6 @@ createApp({
                 const r = await fetch('/api/clients/' + encodeURIComponent(id) + '/config');
                 const d = await r.json();
                 cfgText.value = d.config || '';
-                hy2Text.value = d.hy2_uri || '';
-                hy2Password.value = d.hy2_password || '';
-                hy2Host.value = d.host || '';
                 currentCfgId.value = id;
                 showCfgModal.value = true;
             } catch (e) { alert('❌ ' + e.message); }
@@ -1057,15 +1030,7 @@ createApp({
         };
 
         const copyCfg = () => {
-            copyTextFallback(cfgText.value, 'Скопировано AWG!');
-        };
-        const copyMihomo = () => {
-            const url = window.location.protocol + "//" + window.location.host + "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
-            copyTextFallback(url, 'Ссылка на подписку скопирована: ' + url);
-        };
-        const downloadMihomo = () => {
-            const url = "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
-            window.open(url, '_blank');
+            copyTextFallback(cfgText.value, 'Скопировано!');
         };
 
         // ── Init ─────────────────────────────
@@ -1078,10 +1043,10 @@ createApp({
         return {
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
-            showAddClient, newClientName, showCfgModal, cfgText, hy2Text, hy2Password, hy2Host, currentCfgId,
+            showAddClient, newClientName, showCfgModal, cfgText, currentCfgId,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg, copyMihomo, downloadMihomo, editLimit, fetchLeaderboard
+            createClient, delClient, viewCfg, copyCfg, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');

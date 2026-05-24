@@ -558,11 +558,9 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     logger.info(f"Отправляем в awg-server: {payload}")
     res = await proxy_awg("POST", "/api/clients", payload)
     if res.status_code in [200, 201]:
-        hy2_password = secrets.token_urlsafe(12)
         db = load_clients_db()
         if data["id"] not in db: 
             db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-        db[data["id"]]["hy2_password"] = hy2_password
         save_clients_db(db)
         try:
             with open(SERVERS_FILE, "r", encoding="utf-8") as f:
@@ -605,22 +603,9 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 db = load_clients_db()
                 if client_id not in db:
                     db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-                
-                if not db[client_id].get("hy2_password"):
-                    db[client_id]["hy2_password"] = secrets.token_urlsafe(12)
                     save_clients_db(db)
-                    try:
-                        with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-                            servers = json.load(f)
-                    except:
-                        servers = []
-                    generate_singbox_config(servers, CONFIG_FILE)
-                    os.system("systemctl restart sing-box")
                     
-                hy2_password = db[client_id]["hy2_password"]
-                host = "blueorb.online"
-                hy2_uri = f"hysteria2://{hy2_password}@{host}:8443/?sni={host}#{client_id}"
-                return {"config": awg_config, "hy2_uri": hy2_uri, "hy2_password": hy2_password, "host": host}
+                return {"config": awg_config}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
@@ -628,37 +613,6 @@ async def get_client_config(request: Request, client_id: str, username: str = De
         logger.error(f"Исключение при получении конфига {client_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/sub/hy2/{client_id}")
-async def get_hy2_sub(client_id: str, request: Request):
-    db = load_clients_db()
-    if client_id not in db:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    if not db[client_id].get("hy2_password"):
-        db[client_id]["hy2_password"] = secrets.token_urlsafe(12)
-        save_clients_db(db)
-        try:
-            with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-                servers = json.load(f)
-        except:
-            servers = []
-        generate_singbox_config(servers, CONFIG_FILE)
-        os.system("systemctl restart sing-box")
-        
-    hy2_password = db[client_id]["hy2_password"]
-    host = "blueorb.online"
-    
-    template_path = os.path.join(PANEL_DIR, "mihomo_template.yaml")
-    if not os.path.exists(template_path):
-        raise HTTPException(status_code=404, detail="Mihomo template not found on server")
-        
-    with open(template_path, "r", encoding="utf-8") as f:
-        template = f.read()
-        
-    template = template.replace("{HOST}", host)
-    template = template.replace("{PASSWORD}", hy2_password)
-    
-    return Response(content=template, media_type="text/yaml")
 
 @app.get("/api/leaderboard")
 async def get_leaderboard(username: str = Depends(verify_credentials)):
