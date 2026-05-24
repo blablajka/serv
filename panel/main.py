@@ -630,20 +630,8 @@ async def get_hy2_sub(client_id: str, request: Request):
     with open(template_path, "r", encoding="utf-8") as f:
         template = f.read()
         
-    proxy_yaml = f"""  - name: 🚀 BlueOrb Hysteria2
-    type: hysteria2
-    server: {host}
-    port: 8443
-    password: {hy2_password}
-    sni: {host}
-    skip-cert-verify: false
-"""
-    
-    # Заменяем первую встретившуюся строку `# LEAVE THIS LINE!` (в proxies)
-    template = template.replace("  # LEAVE THIS LINE!", proxy_yaml, 1)
-    
-    # Для proxy-groups добавляем имя нашего прокси 🚀 BlueOrb Hysteria2
-    template = template.replace("      # LEAVE THIS LINE!", "      - 🚀 BlueOrb Hysteria2\n      # LEAVE THIS LINE!")
+    template = template.replace("{HOST}", host)
+    template = template.replace("{PASSWORD}", hy2_password)
     
     return Response(content=template, media_type="text/yaml")
 
