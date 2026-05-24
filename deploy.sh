@@ -299,9 +299,18 @@ if [ ! -d "/opt/zapret-discord-youtube-linux" ]; then
     git clone https://github.com/Sergeydigl3/zapret-discord-youtube-linux.git /opt/zapret-discord-youtube-linux
     cd /opt/zapret-discord-youtube-linux
     ./service.sh download-deps --default
-    log_info "Сейчас запустится интерактивный установщик Zapret."
-    log_info "ОБЯЗАТЕЛЬНО выберите ваш основной сетевой интерфейс (например, ens3 или eth0). Не выбирайте any или tun0!"
-    ./service.sh
+    
+    MAIN_IFACE=$(ip route get 8.8.8.8 | awk '{print $5}' | head -n1)
+    log_info "Автоматически выбран сетевой интерфейс для Zapret: $MAIN_IFACE"
+    
+    cat <<EOF > conf.env
+interface=$MAIN_IFACE
+gamefiltertcp=false
+gamefilterudp=true
+strategy=discord
+EOF
+    
+    ./service.sh service install || true
     cd /opt/smart_vpn || cd /tmp/smart_vpn_install
 fi
 log_success "Zapret установлен."
