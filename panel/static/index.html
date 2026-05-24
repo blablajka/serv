@@ -686,7 +686,9 @@
                 <label class="form-label">Имя клиента</label>
                 <input class="form-input" v-model="newClientName" placeholder="Мой iPhone">
             </div>
-            <button class="btn btn-primary" style="width:100%;justify-content:center;" @click="createClient">Создать</button>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;" @click="createClient" :disabled="isCreating">
+                {{ isCreating ? '⏳ Создание...' : 'Создать' }}
+            </button>
         </div>
     </div>
 
@@ -960,9 +962,11 @@ createApp({
             await fetchServers();
         };
 
-        // ── Client actions ────────────────────
+        const isCreating = ref(false);
         const createClient = async () => {
             if (!newClientName.value) { alert('Введите имя клиента'); return; }
+            if (isCreating.value) return;
+            isCreating.value = true;
             try {
                 const r = await fetch('/api/clients', {
                     method: 'POST',
@@ -978,6 +982,7 @@ createApp({
                     alert('❌ Ошибка создания клиента: ' + (d.error || d.detail || JSON.stringify(d)));
                 }
             } catch (e) { alert('❌ Сетевая ошибка: ' + e.message); }
+            isCreating.value = false;
         };
 
         const delClient = async id => {
@@ -1033,7 +1038,7 @@ createApp({
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
             showAddClient, newClientName, showCfgModal, cfgText, hy2Text,
-            hasFatal, stripAnsi, logClass, orchStat,
+            hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
             createClient, delClient, viewCfg, copyCfg, copyHy2, editLimit, fetchLeaderboard
         };
