@@ -71,6 +71,24 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "default": selector_outbounds[-1] if len(selector_outbounds) > 1 else "direct"
     })
 
+    ss_users = []
+    clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
+    try:
+        if os.path.exists(clients_db_path):
+            with open(clients_db_path, "r", encoding="utf-8") as f:
+                clients_db = json.load(f)
+                for cid, data in clients_db.items():
+                    if "ss_password" in data:
+                        ss_users.append({"password": data["ss_password"]})
+    except Exception as e:
+        print("Error loading clients_db for ss_users:", e)
+        
+    if not ss_users:
+        import secrets
+        import base64
+        fallback_pw = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+        ss_users.append({"password": fallback_pw})
+
     config = {
         "log": {"level": "info", "timestamp": True},
         "dns": {
@@ -127,6 +145,14 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "strict_route": True,
                 "endpoint_independent_nat": True,
                 "stack": "system"
+            },
+            {
+                "type": "shadowsocks",
+                "tag": "ss-in",
+                "listen": "::",
+                "listen_port": 8388,
+                "method": "2022-blake3-aes-128-gcm",
+                "users": ss_users
             }
         ],
         "endpoints": endpoints,

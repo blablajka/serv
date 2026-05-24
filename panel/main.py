@@ -526,7 +526,7 @@ client_creation_lock = asyncio.Lock()
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
     global last_client_creation
-    import uuid, re, time
+    import uuid, re, time, secrets, base64
     data = await request.json()
     
     async with client_creation_lock:
@@ -558,9 +558,11 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     logger.info(f"Отправляем в awg-server: {payload}")
     res = await proxy_awg("POST", "/api/clients", payload)
     if res.status_code in [200, 201]:
+        ss_password = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
         db = load_clients_db()
         if data["id"] not in db: 
             db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
+        db[data["id"]]["ss_password"] = ss_password
         save_clients_db(db)
         try:
             with open(SERVERS_FILE, "r", encoding="utf-8") as f:
@@ -603,9 +605,27 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 db = load_clients_db()
                 if client_id not in db:
                     db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-                    save_clients_db(db)
                     
-                return {"config": awg_config}
+                import secrets
+                import base64
+                if not db[client_id].get("ss_password"):
+                    db[client_id]["ss_password"] = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+                    save_clients_db(db)
+                    try:
+                        with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                            servers = json.load(f)
+                    except:
+                        servers = []
+                    generate_singbox_config(servers, CONFIG_FILE)
+                    os.system("systemctl restart sing-box")
+                    
+                ss_password = db[client_id]["ss_password"]
+                host = "blueorb.online"
+                
+                # Raw URI format requested by user
+                ss_uri = f"ss://2022-blake3-aes-128-gcm:{ss_password}@{host}:8388#{client_id}"
+                
+                return {"config": awg_config, "ss_password": ss_password, "ss_uri": ss_uri, "host": host}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
