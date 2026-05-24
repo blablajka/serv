@@ -103,7 +103,14 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             ],
             "rules": [
                 {
-                    "domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"],
+                    "domain_suffix": [
+                        "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
+                        "youtube.googleapis.com", "youtubei.googleapis.com",
+                        "youtubeembeddedplayer.googleapis.com", "jnn-pa.googleapis.com",
+                        "youtube-nocookie.com", "youtubekids.com",
+                        "wide-youtube.l.google.com", "youtube-ui.l.google.com",
+                        "yt-video-upload.l.google.com", "ytimg.l.google.com"
+                    ],
                     "server": "dns-google"
                 }
             ],
@@ -137,6 +144,11 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {
                     "domain_suffix": [
                         "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
+                        "youtube.googleapis.com", "youtubei.googleapis.com",
+                        "youtubeembeddedplayer.googleapis.com", "jnn-pa.googleapis.com",
+                        "youtube-nocookie.com", "youtubekids.com",
+                        "wide-youtube.l.google.com", "youtube-ui.l.google.com",
+                        "yt-video-upload.l.google.com", "ytimg.l.google.com",
                         "discord.com", "discord.gg", "discordapp.net"
                     ],
                     "outbound": "direct"
