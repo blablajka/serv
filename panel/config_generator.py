@@ -87,9 +87,26 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                     },
                     "detour": "Select-Outbound"
                 },
+                {
+                    "tag": "dns-google",
+                    "type": "https",
+                    "server": "8.8.8.8",
+                    "server_port": 443,
+                    "path": "/dns-query",
+                    "tls": {
+                        "enabled": True,
+                        "server_name": "dns.google"
+                    },
+                    "detour": "Select-Outbound"
+                },
                 {"tag": "dns-local", "type": "local"}
             ],
-            "rules": [],
+            "rules": [
+                {
+                    "domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"],
+                    "server": "dns-google"
+                }
+            ],
             "final": "dns-cloudflare",
             "strategy": "ipv4_only"
         },
