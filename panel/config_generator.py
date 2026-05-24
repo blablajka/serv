@@ -54,7 +54,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         endpoint = {
             "type": "wireguard",
             "tag": endpoint_tag,
-            "mtu": 1420,
+            "mtu": 1400,
             "address": [server["local_address"]],
             "private_key": server["private_key"],
             "domain_resolver": "dns-local",
@@ -77,16 +77,28 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "servers": [
                 {
                     "tag": "dns-yandex",
-                    "type": "tls",
+                    "type": "https",
                     "server": "77.88.8.8",
-                    "server_port": 853,
+                    "server_port": 443,
+                    "path": "/dns-query",
                     "tls": {
                         "enabled": True,
                         "server_name": "common.dot.dns.yandex.net"
                     },
                     "detour": "direct"
                 },
-                {"tag": "dns-google", "type": "udp", "server": "8.8.8.8", "detour": "Select-Outbound"},
+                {
+                    "tag": "dns-google",
+                    "type": "https",
+                    "server": "8.8.8.8",
+                    "server_port": 443,
+                    "path": "/dns-query",
+                    "tls": {
+                        "enabled": True,
+                        "server_name": "dns.google"
+                    },
+                    "detour": "Select-Outbound"
+                },
                 {"tag": "dns-local", "type": "local"}
             ],
             "rules": [
@@ -102,6 +114,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "tag": "tun-in",
                 "interface_name": "tun0",
                 "address": ["10.255.0.1/24"],
+                "mtu": 1400,
+                "udp_timeout": "1m",
                 "auto_route": False,
                 "strict_route": False
             }
