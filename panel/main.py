@@ -603,7 +603,21 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 logger.info(f"Конфиг для {client_id} успешно получен")
                 awg_config = r.text
                 db = load_clients_db()
-                hy2_password = db.get(client_id, {}).get("hy2_password", "")
+                if client_id not in db:
+                    db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
+                
+                if not db[client_id].get("hy2_password"):
+                    db[client_id]["hy2_password"] = secrets.token_urlsafe(12)
+                    save_clients_db(db)
+                    try:
+                        with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                            servers = json.load(f)
+                    except:
+                        servers = []
+                    generate_singbox_config(servers, CONFIG_FILE)
+                    os.system("systemctl restart sing-box")
+                    
+                hy2_password = db[client_id]["hy2_password"]
                 host = "blueorb.online"
                 hy2_uri = f"hysteria2://{hy2_password}@{host}:8443/?sni={host}#{client_id}"
                 return {"config": awg_config, "hy2_uri": hy2_uri, "hy2_password": hy2_password, "host": host}
@@ -620,7 +634,18 @@ async def get_hy2_sub(client_id: str, request: Request):
     if client_id not in db:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    hy2_password = db[client_id].get("hy2_password", "")
+    if not db[client_id].get("hy2_password"):
+        db[client_id]["hy2_password"] = secrets.token_urlsafe(12)
+        save_clients_db(db)
+        try:
+            with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                servers = json.load(f)
+        except:
+            servers = []
+        generate_singbox_config(servers, CONFIG_FILE)
+        os.system("systemctl restart sing-box")
+        
+    hy2_password = db[client_id]["hy2_password"]
     host = "blueorb.online"
     
     template_path = os.path.join(PANEL_DIR, "mihomo_template.yaml")
