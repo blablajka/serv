@@ -76,21 +76,21 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "dns": {
             "servers": [
                 {
-                    "tag": "dns-google",
+                    "tag": "dns-cloudflare",
                     "type": "https",
-                    "server": "8.8.8.8",
+                    "server": "1.1.1.1",
                     "server_port": 443,
                     "path": "/dns-query",
                     "tls": {
                         "enabled": True,
-                        "server_name": "dns.google"
+                        "server_name": "cloudflare-dns.com"
                     },
                     "detour": "Select-Outbound"
                 },
                 {"tag": "dns-local", "type": "local"}
             ],
             "rules": [],
-            "final": "dns-google",
+            "final": "dns-cloudflare",
             "strategy": "ipv4_only"
         },
         "inbounds": [
