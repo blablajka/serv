@@ -622,8 +622,10 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 ss_password = db[client_id]["ss_password"]
                 host = "blueorb.online"
                 
-                # Raw URI format requested by user
-                ss_uri = f"ss://2022-blake3-aes-128-gcm:{ss_password}@{host}:8388#{client_id}"
+                # SIP002 compliant URI format
+                userinfo = f"2022-blake3-aes-128-gcm:{ss_password}"
+                b64_userinfo = base64.b64encode(userinfo.encode('utf-8')).decode('utf-8')
+                ss_uri = f"ss://{b64_userinfo}@{host}:8388#{client_id}"
                 
                 return {"config": awg_config, "ss_password": ss_password, "ss_uri": ss_uri, "host": host}
             else:
