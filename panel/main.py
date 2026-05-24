@@ -815,8 +815,10 @@ async def orchestrator_loop():
                 if current != "direct":
                     await switch_outbound("direct")
 
+        except httpx.ConnectError:
+            logger.error(f"Orchestrator error: Не удалось подключиться к Sing-box API ({CLASH_API_URL}). Возможно, сервис sing-box не запущен.")
         except Exception as e:
-            logger.error(f"Orchestrator error: {e}")
+            logger.error(f"Orchestrator error: {type(e).__name__} - {e}")
 
         await asyncio.sleep(10)
 
