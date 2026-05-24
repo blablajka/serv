@@ -692,19 +692,21 @@
 
     <!-- ══════════ MODAL: Config ══════════ -->
     <div v-if="showCfgModal" class="overlay" @click.self="showCfgModal=false">
-        <div class="modal" style="width: 500px;">
+        <div class="modal" style="width: 800px; max-width: 90vw;">
             <div class="modal-title">📋 Конфигурация клиента</div>
             
-            <div style="margin-bottom:14px;">
-                <h3 style="font-size:14px; margin-bottom:8px;">Hysteria 2 (Happ / NekoBox)</h3>
-                <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ hy2Text }}</pre>
-                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyHy2">📋 Скопировать Hysteria2</button>
-            </div>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
+                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Hysteria 2 (Happ / NekoBox)</h3>
+                    <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;flex: 1;">{{ hy2Text || 'Для этого старого клиента Hysteria2 пароль не сгенерирован. Пересоздайте клиента.' }}</pre>
+                    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyHy2" :disabled="!hy2Text">📋 Скопировать Hysteria2</button>
+                </div>
 
-            <div style="margin-bottom:14px;">
-                <h3 style="font-size:14px; margin-bottom:8px;">AmneziaWG</h3>
-                <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ cfgText }}</pre>
-                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyCfg">📋 Скопировать AWG</button>
+                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
+                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">AmneziaWG</h3>
+                    <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;flex: 1;">{{ cfgText }}</pre>
+                    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyCfg">📋 Скопировать AWG</button>
+                </div>
             </div>
         </div>
     </div>
