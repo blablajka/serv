@@ -177,8 +177,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "auto_route": True,
                 "strict_route": True,
                 "endpoint_independent_nat": True,
-                "stack": "system",
-                "sniff": True
+                "stack": "system"
             },
             {
                 "type": "hysteria2",
