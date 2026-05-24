@@ -112,58 +112,9 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {
-                    "network": "udp",
-                    "port": 443,
-                    "domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"],
-                    "action": "reject"
-                },
-                {
                     "domain_suffix": [
                         "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
-                        "youtube.googleapis.com", "yt3.ggpht.com", "yt4.ggpht.com",
-                        "yt3.googleusercontent.com", "jnn-pa.googleapis.com",
-                        "stable.dl2.discordapp.net", "wide-youtube.l.google.com",
-                        "youtube-nocookie.com", "youtube-ui.l.google.com",
-                        "youtubeembeddedplayer.googleapis.com", "youtubekids.com",
-                        "youtubei.googleapis.com", "yt-video-upload.l.google.com",
-                        "ytimg.l.google.com",
-                        "rr1---sn-5hne6nsd.googlevideo.com", "rr1---sn-ntqe6nee.googlevideo.com",
-                        "rr1---sn-q4fl6nzy.googlevideo.com", "rr1---sn-n8v7snl7.googlevideo.com",
-                        "rr1---sn-q4flrnss.googlevideo.com", "rr1---sn-q4fl6ndz.googlevideo.com",
-                        "rr1---sn-5hneknes.googlevideo.com", "rr1---sn-5hne6nzs.googlevideo.com",
-                        "rr1---sn-ntqe6n7r.googlevideo.com", "rr1---sn-gvnuxaxjvh-nbje.googlevideo.com",
-                        "rr2---sn-5hne6nsd.googlevideo.com", "rr2---sn-ntqe6nee.googlevideo.com",
-                        "rr2---sn-q4fl6nzy.googlevideo.com", "rr2---sn-n8v7snl7.googlevideo.com",
-                        "rr2---sn-q4flrnss.googlevideo.com", "rr2---sn-q4fl6ndz.googlevideo.com",
-                        "rr2---sn-5hneknes.googlevideo.com", "rr2---sn-5hne6nzs.googlevideo.com",
-                        "rr2---sn-ntqe6n7r.googlevideo.com", "rr2---sn-gvnuxaxjvh-nbje.googlevideo.com",
-                        "rr4---sn-5hne6nsd.googlevideo.com", "rr4---sn-ntqe6nee.googlevideo.com",
-                        "rr4---sn-q4fl6nzy.googlevideo.com", "rr4---sn-n8v7snl7.googlevideo.com",
-                        "rr4---sn-q4flrnss.googlevideo.com", "rr4---sn-q4fl6ndz.googlevideo.com",
-                        "rr4---sn-5hneknes.googlevideo.com", "rr4---sn-5hne6nzs.googlevideo.com",
-                        "rr4---sn-ntqe6n7r.googlevideo.com", "rr4---sn-gvnuxaxjvh-nbje.googlevideo.com",
-                        "rr5---sn-5hne6nsd.googlevideo.com", "rr5---sn-ntqe6nee.googlevideo.com",
-                        "rr5---sn-q4fl6nzy.googlevideo.com", "rr5---sn-n8v7snl7.googlevideo.com",
-                        "rr5---sn-q4flrnss.googlevideo.com", "rr5---sn-q4fl6ndz.googlevideo.com",
-                        "rr5---sn-5hneknes.googlevideo.com", "rr5---sn-5hne6nzs.googlevideo.com",
-                        "rr5---sn-ntqe6n7r.googlevideo.com", "rr5---sn-gvnuxaxjvh-nbje.googlevideo.com"
-                    ],
-                    "outbound": "direct"
-                },
-                {
-                    "ip_cidr": [
-                        "142.250.154.0/24",
-                        "142.251.13.0/24",
-                        "142.251.14.0/24",
-                        "142.251.20.0/24",
-                        "142.251.110.0/24",
-                        "142.251.127.0/24",
-                        "192.178.183.0/24",
-                        "34.41.139.0/24",
-                        "216.239.32.0/24",
-                        "216.239.34.0/24",
-                        "216.239.36.0/24",
-                        "216.239.38.0/24"
+                        "discord.com", "discord.gg", "discordapp.net"
                     ],
                     "outbound": "direct"
                 }
