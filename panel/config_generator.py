@@ -71,6 +71,9 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "default": selector_outbounds[-1] if len(selector_outbounds) > 1 else "direct"
     })
 
+    if not os.path.exists("/etc/sing-box/hy2.crt"):
+        os.system('openssl req -x509 -newkey rsa:4096 -keyout /etc/sing-box/hy2.key -out /etc/sing-box/hy2.crt -days 3650 -nodes -subj "/CN=bing.com" >/dev/null 2>&1')
+
     config = {
         "log": {"level": "info", "timestamp": True},
         "dns": {
@@ -127,6 +130,23 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "udp_timeout": "1m",
                 "auto_route": False,
                 "strict_route": False
+            },
+            {
+                "type": "hysteria2",
+                "tag": "hy2-in",
+                "listen": "::",
+                "listen_port": 8443,
+                "users": [
+                    {
+                        "password": "testpassword123"
+                    }
+                ],
+                "tls": {
+                    "enabled": True,
+                    "server_name": "bing.com",
+                    "certificate_path": "/etc/sing-box/hy2.crt",
+                    "key_path": "/etc/sing-box/hy2.key"
+                }
             }
         ],
         "endpoints": endpoints,

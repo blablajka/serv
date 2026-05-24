@@ -114,6 +114,7 @@ ufw default allow outgoing
 ufw allow $NEW_SSH_PORT/tcp
 ufw allow 5000/tcp
 ufw allow 51820/udp
+ufw allow 8443/udp
 ufw --force enable
 log_success "UFW настроен и включен."
 
