@@ -560,6 +560,11 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     if res.status_code in [200, 201]:
         ss_password = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
         db = load_clients_db()
+        if "__global__" not in db:
+            db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(16)).decode('utf-8')}
+        elif "ss_server_password" not in db["__global__"]:
+            db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+            
         if data["id"] not in db: 
             db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
         db[data["id"]]["ss_password"] = ss_password
@@ -605,11 +610,23 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 db = load_clients_db()
                 if client_id not in db:
                     db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-                    
                 import secrets
                 import base64
+                import urllib.parse
+                
+                need_save = False
+                if "__global__" not in db:
+                    db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(16)).decode('utf-8')}
+                    need_save = True
+                elif "ss_server_password" not in db["__global__"]:
+                    db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+                    need_save = True
+                    
                 if not db[client_id].get("ss_password"):
                     db[client_id]["ss_password"] = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+                    need_save = True
+                    
+                if need_save:
                     save_clients_db(db)
                     try:
                         with open(SERVERS_FILE, "r", encoding="utf-8") as f:
@@ -620,12 +637,15 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                     os.system("systemctl restart sing-box")
                     
                 ss_password = db[client_id]["ss_password"]
+                ss_server_password = db["__global__"]["ss_server_password"]
                 host = "blueorb.online"
                 
-                # SIP002 compliant URI format
-                userinfo = f"2022-blake3-aes-128-gcm:{ss_password}"
-                b64_userinfo = base64.b64encode(userinfo.encode('utf-8')).decode('utf-8')
-                ss_uri = f"ss://{b64_userinfo}@{host}:8388#{client_id}"
+                # SIP002/SIP022 compliant URI format for Multi-User SS-2022
+                # NO base64 encoding of the entire block! Percent-encode the special chars.
+                psk_block = f"{ss_server_password}:{ss_password}"
+                encoded_psk = urllib.parse.quote(psk_block)
+                ss_uri = f"ss://2022-blake3-aes-128-gcm:{encoded_psk}@{host}:8388#{client_id}"
+                
                 
                 return {"config": awg_config, "ss_password": ss_password, "ss_uri": ss_uri, "host": host}
             else:

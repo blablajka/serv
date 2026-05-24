@@ -72,20 +72,27 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     })
 
     ss_users = []
+    ss_server_password = ""
     clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
     try:
         if os.path.exists(clients_db_path):
             with open(clients_db_path, "r", encoding="utf-8") as f:
                 clients_db = json.load(f)
+                ss_server_password = clients_db.get("__global__", {}).get("ss_server_password", "")
                 for cid, data in clients_db.items():
+                    if cid == "__global__": continue
                     if "ss_password" in data:
                         ss_users.append({"password": data["ss_password"]})
     except Exception as e:
         print("Error loading clients_db for ss_users:", e)
         
+    import secrets
+    import base64
+    
+    if not ss_server_password:
+        ss_server_password = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+        
     if not ss_users:
-        import secrets
-        import base64
         fallback_pw = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
         ss_users.append({"password": fallback_pw})
 
@@ -152,7 +159,11 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "listen": "::",
                 "listen_port": 8388,
                 "method": "2022-blake3-aes-128-gcm",
-                "users": ss_users
+                "password": ss_server_password,
+                "users": ss_users,
+                "multiplex": {
+                    "enabled": True
+                }
             }
         ],
         "endpoints": endpoints,
