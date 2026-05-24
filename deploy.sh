@@ -46,7 +46,38 @@ if [ ! -d "panel" ]; then
     cd /tmp/smart_vpn_install
 fi
 
-# 0. Создание Swap
+# 0. Настройка безопасности (SSH)
+NEW_SSH_PORT=22
+read -p "Хотите ли вы изменить стандартный SSH порт (22) на другой для безопасности? [y/N]: " change_ssh
+if [[ "$change_ssh" =~ ^[Yy]$ ]]; then
+    read -p "Введите новый порт (например, 2222): " NEW_SSH_PORT
+    if [[ "$NEW_SSH_PORT" =~ ^[0-9]+$ ]] && [ "$NEW_SSH_PORT" -ge 1024 ] && [ "$NEW_SSH_PORT" -le 65535 ]; then
+        log_info "Меняем порт SSH на $NEW_SSH_PORT..."
+        sed -i "s/^#Port 22/Port $NEW_SSH_PORT/" /etc/ssh/sshd_config
+        sed -i "s/^Port 22/Port $NEW_SSH_PORT/" /etc/ssh/sshd_config
+        if ! grep -q "^Port $NEW_SSH_PORT" /etc/ssh/sshd_config; then
+            echo "Port $NEW_SSH_PORT" >> /etc/ssh/sshd_config
+        fi
+        systemctl restart sshd || systemctl restart ssh
+        log_success "Порт SSH изменен на $NEW_SSH_PORT."
+    else
+        log_error "Некорректный порт! Оставляем порт 22."
+        NEW_SSH_PORT=22
+    fi
+fi
+
+# Проверка авторизации по ключу
+if grep -q "ssh-rsa" ~/.ssh/authorized_keys 2>/dev/null || grep -q "ssh-ed25519" ~/.ssh/authorized_keys 2>/dev/null; then
+    read -p "У вас настроен вход по SSH-ключу. Отключить вход по паролю для максимальной защиты? [Y/n]: " disable_pass
+    if [[ ! "$disable_pass" =~ ^[Nn]$ ]]; then
+        sed -i "s/^#PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config
+        sed -i "s/^PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config
+        systemctl restart sshd || systemctl restart ssh
+        log_success "Вход по паролю отключен."
+    fi
+fi
+
+# 1. Создание Swap
 log_info "Проверка Swap (важно для компиляции)..."
 if [ $(swapon -s | wc -l) -eq 0 ]; then
     log_info "Создаем Swap 2GB..."
@@ -69,11 +100,46 @@ if grep -qi "ubuntu" /etc/os-release; then
     systemctl disable --now multipathd || true
 fi
 
-# 2. Установка зависимостей
+# 3. Установка зависимостей
 log_info "Обновление пакетов и установка зависимостей..."
 apt update -y || handle_error $LINENO
-apt install -y curl wget git iptables iproute2 python3 python3-pip python3-venv build-essential wireguard-tools || handle_error $LINENO
+apt install -y curl wget git iptables iptables-persistent iproute2 python3 python3-pip python3-venv build-essential wireguard-tools ufw rsyslog cron ipset dnsutils || handle_error $LINENO
 log_success "Зависимости установлены."
+
+# 3.1 Настройка UFW (Firewall)
+log_info "Настройка Firewall (UFW)..."
+ufw --force reset
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow $NEW_SSH_PORT/tcp
+ufw allow 5000/tcp
+ufw allow 51820/udp
+ufw --force enable
+log_success "UFW настроен и включен."
+
+# 3.2 Блокировка сканеров РКН
+log_info "Настройка блокировки сканеров РКН..."
+mkdir -p /var/log/blacklist
+if id "syslog" &>/dev/null; then
+    chown syslog:adm /var/log/blacklist
+else
+    chown root:adm /var/log/blacklist
+fi
+chmod 0755 /var/log/blacklist
+
+echo ':msg, contains, "Blocked IP attempt: " /var/log/blacklist/blacklist.log' > /etc/rsyslog.d/99-blacklist.conf
+systemctl restart rsyslog
+
+wget -qO /var/log/blacklist/blacklist_updater.sh https://raw.githubusercontent.com/blablajka/AS_Network_List_for-debian/main/blacklist_updater.sh
+chmod +x /var/log/blacklist/blacklist_updater.sh
+/var/log/blacklist/blacklist_updater.sh
+(crontab -l 2>/dev/null; echo "0 9 * * * /var/log/blacklist/blacklist_updater.sh") | crontab -
+
+wget -qO /usr/local/bin/domain_blocker.sh https://raw.githubusercontent.com/blablajka/AS_Network_List_for-debian/main/domain_blocker.sh
+chmod +x /usr/local/bin/domain_blocker.sh
+wget -qO /var/log/blacklist/domains.list https://raw.githubusercontent.com/blablajka/AS_Network_List_for-debian/main/domains.list
+/usr/local/bin/domain_blocker.sh --install || true
+log_success "Блокировка сканеров РКН активирована."
 
 # 2. Установка AmneziaWG (инструменты + DKMS-модуль ядра)
 # ВАЖНО: awg-server требует модуль ядра amneziawg на bridge-сервере!
