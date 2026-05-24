@@ -702,7 +702,15 @@
                     <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Hysteria 2 Данные</h3>
                     <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:14px;color:#fff; flex: 1;">
                         <div style="margin-bottom: 12px;"><b>Домен:</b> <span style="color:#4ade80;">{{ hy2Host || 'blueorb.online' }}</span></div>
-                        <div><b>Пароль:</b> <span style="color:#4ade80;">{{ hy2Password || 'Не сгенерирован (старый клиент)' }}</span></div>
+                        <div style="margin-bottom: 16px;"><b>Пароль:</b> <span style="color:#4ade80;">{{ hy2Password || 'Не сгенерирован (старый клиент)' }}</span></div>
+                        
+                        <div v-if="hy2Host && hy2Password" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                            <div style="font-size: 12px; margin-bottom: 8px; color: #aaa;">Mihomo (Clash Meta) Подписка:</div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-success" style="flex: 1; justify-content:center; font-size:12px;" @click="copyMihomo">📋 Ссылка</button>
+                                <button class="btn btn-success" style="flex: 1; justify-content:center; font-size:12px;" @click="downloadMihomo">⬇ Скачать</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1051,6 +1059,14 @@ createApp({
         const copyCfg = () => {
             copyTextFallback(cfgText.value, 'Скопировано AWG!');
         };
+        const copyMihomo = () => {
+            const url = window.location.protocol + "//" + window.location.host + "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
+            copyTextFallback(url, 'Ссылка на подписку скопирована: ' + url);
+        };
+        const downloadMihomo = () => {
+            const url = "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
+            window.open(url, '_blank');
+        };
 
         // ── Init ─────────────────────────────
         onMounted(() => {
@@ -1065,7 +1081,7 @@ createApp({
             showAddClient, newClientName, showCfgModal, cfgText, hy2Text, hy2Password, hy2Host, currentCfgId,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg, editLimit, fetchLeaderboard
+            createClient, delClient, viewCfg, copyCfg, copyMihomo, downloadMihomo, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');
