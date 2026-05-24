@@ -88,17 +88,39 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         
     if not hy2_users:
         hy2_users.append({"password": "testpassword123"})
-
-    masquerade_url = "https://disk.yandex.ru"
-    domains_txt_path = "/opt/smart_vpn/Reality-SNI-Finder/domains.txt"
-    if os.path.exists(domains_txt_path):
-        try:
-            with open(domains_txt_path, "r", encoding="utf-8") as f:
-                first_line = f.readline().strip()
-                if first_line:
-                    masquerade_url = f"https://{first_line}"
-        except Exception:
-            pass
+        
+    masq_dir = "/opt/smart_vpn/masq"
+    os.makedirs(masq_dir, exist_ok=True)
+    index_html_path = os.path.join(masq_dir, "index.html")
+    if not os.path.exists(index_html_path):
+        with open(index_html_path, "w", encoding="utf-8") as f:
+            f.write("""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Blue Orb File Storage</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; background: radial-gradient(circle at 20% 20%, #1f2937 0, #020617 55%, #000 100%); color: #e5e7eb; }
+    .card { max-width: 480px; padding: 32px 28px; background: rgba(15, 23, 42, 0.92); border-radius: 18px; border: 1px solid rgba(148, 163, 184, 0.4); text-align: left; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    .subtitle { font-size: 14px; color: #9ca3af; margin-bottom: 16px; }
+    .meta { font-size: 13px; color: #9ca3af; line-height: 1.5; }
+    .footer { margin-top: 18px; font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Blue Orb File Storage</h1>
+    <p class="subtitle">Надёжное файловое хранилище c ограниченным доступом.</p>
+    <p class="meta">Доступ к хранилищу предусмотрен только через авторизованные клиенты и внутренние сервисы. Публичный веб‑интерфейс не предоставляется.</p>
+    <p class="footer">© 2026 Blue Orb</p>
+  </div>
+</body>
+</html>""")
+    
+    masquerade_url = f"file://{masq_dir}"
 
     config = {
         "log": {"level": "info", "timestamp": True},
