@@ -227,7 +227,20 @@ WantedBy=multi-user.target
 EOF
 log_success "Маршрутизация настроена."
 
-# 7. Установка Python Панели
+# 7. Установка Zapret (Обход DPI)
+log_info "Установка Zapret для обхода DPI (YouTube, Discord)..."
+if [ ! -d "/opt/zapret-discord-youtube-linux" ]; then
+    git clone https://github.com/Sergeydigl3/zapret-discord-youtube-linux.git /opt/zapret-discord-youtube-linux
+    cd /opt/zapret-discord-youtube-linux
+    ./service.sh download-deps --default
+    log_info "Сейчас запустится интерактивный установщик Zapret."
+    log_info "ОБЯЗАТЕЛЬНО выберите ваш основной сетевой интерфейс (например, ens3 или eth0). Не выбирайте any или tun0!"
+    ./service.sh
+    cd /opt/smart_vpn || cd /tmp/smart_vpn_install
+fi
+log_success "Zapret установлен."
+
+# 8. Установка Python Панели
 log_info "Развертывание веб-панели и оркестратора..."
 mkdir -p /opt/smart_vpn
 cp -r . /opt/smart_vpn/
