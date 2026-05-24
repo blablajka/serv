@@ -74,6 +74,21 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     if not os.path.exists("/etc/sing-box/hy2.crt"):
         os.system('openssl req -x509 -newkey rsa:4096 -keyout /etc/sing-box/hy2.key -out /etc/sing-box/hy2.crt -days 3650 -nodes -subj "/CN=bing.com" >/dev/null 2>&1')
 
+    hy2_users = []
+    clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
+    try:
+        if os.path.exists(clients_db_path):
+            with open(clients_db_path, "r", encoding="utf-8") as f:
+                clients_db = json.load(f)
+                for cid, data in clients_db.items():
+                    if "hy2_password" in data:
+                        hy2_users.append({"password": data["hy2_password"]})
+    except Exception as e:
+        print("Error loading clients_db for hy2_users:", e)
+        
+    if not hy2_users:
+        hy2_users.append({"password": "testpassword123"})
+
     config = {
         "log": {"level": "info", "timestamp": True},
         "dns": {
@@ -136,16 +151,16 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "tag": "hy2-in",
                 "listen": "::",
                 "listen_port": 8443,
-                "users": [
-                    {
-                        "password": "testpassword123"
-                    }
-                ],
+                "users": hy2_users,
                 "tls": {
                     "enabled": True,
                     "server_name": "bing.com",
                     "certificate_path": "/etc/sing-box/hy2.crt",
                     "key_path": "/etc/sing-box/hy2.key"
+                },
+                "obfs": {
+                    "type": "salamander",
+                    "password": "smartvpn_obfs"
                 }
             }
         ],

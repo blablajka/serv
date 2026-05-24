@@ -538,15 +538,42 @@ async def create_client(request: Request, username: str = Depends(verify_credent
         payload["awg_params"] = data["awg_params"]
 
     logger.info(f"Отправляем в awg-server: {payload}")
-    return await proxy_awg("POST", "/api/clients", payload)
+    res = await proxy_awg("POST", "/api/clients", payload)
+    if res.status_code in [200, 201]:
+        hy2_password = secrets.token_urlsafe(12)
+        db = load_clients_db()
+        if data["id"] not in db: db[data["id"]] = {}
+        db[data["id"]]["hy2_password"] = hy2_password
+        save_clients_db(db)
+        try:
+            with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                servers = json.load(f)
+        except:
+            servers = []
+        generate_singbox_config(servers)
+        os.system("systemctl restart sing-box")
+    return res
 
 @app.delete("/api/clients/{client_id}")
 async def delete_client(client_id: str, username: str = Depends(verify_credentials)):
     logger.info(f"Поступил запрос на удаление клиента: {client_id}")
-    return await proxy_awg("DELETE", f"/api/clients/{client_id}")
+    res = await proxy_awg("DELETE", f"/api/clients/{client_id}")
+    if res.status_code in [200, 204]:
+        db = load_clients_db()
+        if client_id in db:
+            del db[client_id]
+            save_clients_db(db)
+            try:
+                with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                    servers = json.load(f)
+            except:
+                servers = []
+            generate_singbox_config(servers)
+            os.system("systemctl restart sing-box")
+    return res
 
 @app.get("/api/clients/{client_id}/config")
-async def get_client_config(client_id: str, username: str = Depends(verify_credentials)):
+async def get_client_config(request: Request, client_id: str, username: str = Depends(verify_credentials)):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
     url = f"{AWG_SERVER_API}/api/clients/{client_id}/configuration"
     logger.info(f"Запрос конфига для клиента {client_id} от awg-server")
@@ -555,7 +582,12 @@ async def get_client_config(client_id: str, username: str = Depends(verify_crede
             r = await client.get(url, headers=headers, timeout=5)
             if r.status_code == 200:
                 logger.info(f"Конфиг для {client_id} успешно получен")
-                return {"config": r.text}
+                awg_config = r.text
+                db = load_clients_db()
+                hy2_password = db.get(client_id, {}).get("hy2_password", "")
+                host = request.url.hostname
+                hy2_uri = f"hysteria2://{hy2_password}@{host}:8443/?insecure=1&sni=bing.com&obfs=salamander&obfs-password=smartvpn_obfs#{client_id}"
+                return {"config": awg_config, "hy2_uri": hy2_uri}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")

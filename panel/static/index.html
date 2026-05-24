@@ -692,10 +692,20 @@
 
     <!-- ══════════ MODAL: Config ══════════ -->
     <div v-if="showCfgModal" class="overlay" @click.self="showCfgModal=false">
-        <div class="modal">
+        <div class="modal" style="width: 500px;">
             <div class="modal-title">📋 Конфигурация клиента</div>
-            <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ cfgText }}</pre>
-            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px;" @click="copyCfg">📋 Скопировать</button>
+            
+            <div style="margin-bottom:14px;">
+                <h3 style="font-size:14px; margin-bottom:8px;">Hysteria 2 (Happ / NekoBox)</h3>
+                <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ hy2Text }}</pre>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyHy2">📋 Скопировать Hysteria2</button>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <h3 style="font-size:14px; margin-bottom:8px;">AmneziaWG</h3>
+                <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;">{{ cfgText }}</pre>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyCfg">📋 Скопировать AWG</button>
+            </div>
         </div>
     </div>
 
@@ -723,6 +733,7 @@ createApp({
         const showAddClient = ref(false);
         const showCfgModal  = ref(false);
         const cfgText       = ref('');
+        const hy2Text       = ref('');
         const newClientName = ref('');
 
         const autoForm = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
@@ -995,13 +1006,18 @@ createApp({
                 const r = await fetch('/api/clients/' + encodeURIComponent(id) + '/config');
                 const d = await r.json();
                 cfgText.value = d.config || '';
+                hy2Text.value = d.hy2_uri || '';
                 showCfgModal.value = true;
             } catch (e) { alert('❌ ' + e.message); }
         };
 
         const copyCfg = () => {
             navigator.clipboard.writeText(cfgText.value);
-            alert('Скопировано!');
+            alert('Скопировано AWG!');
+        };
+        const copyHy2 = () => {
+            navigator.clipboard.writeText(hy2Text.value);
+            alert('Скопировано Hysteria2!');
         };
 
         // ── Init ─────────────────────────────
@@ -1014,10 +1030,10 @@ createApp({
         return {
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
-            showAddClient, newClientName, showCfgModal, cfgText,
+            showAddClient, newClientName, showCfgModal, cfgText, hy2Text,
             hasFatal, stripAnsi, logClass, orchStat,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg, editLimit, fetchLeaderboard
+            createClient, delClient, viewCfg, copyCfg, copyHy2, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');
