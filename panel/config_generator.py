@@ -111,7 +111,24 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "rules": [
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
-                {"domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"], "outbound": "direct"}
+                {"domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"], "outbound": "direct"},
+                {
+                    "ip_cidr": [
+                        "142.250.154.0/24",
+                        "142.251.13.0/24",
+                        "142.251.14.0/24",
+                        "142.251.20.0/24",
+                        "142.251.110.0/24",
+                        "142.251.127.0/24",
+                        "192.178.183.0/24",
+                        "34.41.139.0/24",
+                        "216.239.32.0/24",
+                        "216.239.34.0/24",
+                        "216.239.36.0/24",
+                        "216.239.38.0/24"
+                    ],
+                    "outbound": "direct"
+                }
             ],
             "auto_detect_interface": True,
             "final": "Select-Outbound",
