@@ -604,8 +604,8 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 awg_config = r.text
                 db = load_clients_db()
                 hy2_password = db.get(client_id, {}).get("hy2_password", "")
-                host = request.url.hostname
-                hy2_uri = f"hysteria2://{hy2_password}@{host}:8443/?insecure=1&sni=bing.com&obfs=salamander&obfs-password=smartvpn_obfs#{client_id}"
+                host = "blueorb.online"
+                hy2_uri = f"hysteria2://{hy2_password}@{host}:8443/?sni={host}#{client_id}"
                 return {"config": awg_config, "hy2_uri": hy2_uri}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")

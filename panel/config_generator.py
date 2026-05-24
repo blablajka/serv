@@ -89,6 +89,17 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     if not hy2_users:
         hy2_users.append({"password": "testpassword123"})
 
+    masquerade_url = "https://www.bing.com"
+    domains_txt_path = "/opt/smart_vpn/Reality-SNI-Finder/domains.txt"
+    if os.path.exists(domains_txt_path):
+        try:
+            with open(domains_txt_path, "r", encoding="utf-8") as f:
+                first_line = f.readline().strip()
+                if first_line:
+                    masquerade_url = f"https://{first_line}"
+        except Exception:
+            pass
+
     config = {
         "log": {"level": "info", "timestamp": True},
         "dns": {
@@ -140,11 +151,12 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "type": "tun",
                 "tag": "tun-in",
                 "interface_name": "tun0",
-                "address": ["10.255.0.1/24"],
-                "mtu": 1400,
-                "udp_timeout": "1m",
-                "auto_route": False,
-                "strict_route": False
+                "inet4_address": "10.255.0.1/24",
+                "auto_route": True,
+                "strict_route": True,
+                "endpoint_independent_nat": True,
+                "stack": "system",
+                "sniff": True
             },
             {
                 "type": "hysteria2",
@@ -154,15 +166,12 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "users": hy2_users,
                 "up_mbps": 1000,
                 "down_mbps": 1000,
+                "masquerade": masquerade_url,
                 "tls": {
                     "enabled": True,
-                    "server_name": "bing.com",
-                    "certificate_path": "/etc/sing-box/hy2.crt",
-                    "key_path": "/etc/sing-box/hy2.key"
-                },
-                "obfs": {
-                    "type": "salamander",
-                    "password": "smartvpn_obfs"
+                    "server_name": "blueorb.online",
+                    "certificate_path": "/etc/letsencrypt/live/blueorb.online/fullchain.pem",
+                    "key_path": "/etc/letsencrypt/live/blueorb.online/privkey.pem"
                 }
             }
         ],
