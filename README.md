@@ -95,6 +95,11 @@ SSH_PORT=2222 wget -qO- https://raw.githubusercontent.com/blablajka/serv/main/de
 
 ---
 
+## 🔗 Поддержка подписок Mihomo (Clash Meta)
+Для клиентов Hysteria 2 панель поддерживает автоматическую генерацию YAML-файлов подписки, совместимых с клиентами Mihomo (Clash Meta).
+
+Панель использует шаблон `mihomo-ru-bundle.yaml`, предоставленный сообществом (оригинал шаблона: [remnawave/templates/mihomo-ru-bundle.yaml](https://raw.githubusercontent.com/remnawave/templates/refs/heads/main/by-legiz/subscription-templates/mihomo-ru-bundle.yaml)). Клиентская конфигурация (домен, порт, пароль, SNI) автоматически инжектится в шаблон при запросе ссылки на подписку из веб-интерфейса.
+
 ## 📜 История изменений и исправлений (Changelog)
 **Обновление от 21.05.2026**
 - **Починена маршрутизация трафика (Утечка в открытый интернет):** Ранее awg-server выдавал клиентам IP из подсети `10.99.0.0/24`, а правила `iptables` ожидали только `10.255.0.0/24`. Добавлены обе подсети, теперь трафик жестко заворачивается в `tun0` (Sing-Box) и маршрутизируется за рубеж.

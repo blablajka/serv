@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, status, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, Depends, status, BackgroundTasks, Response
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -613,6 +613,39 @@ async def get_client_config(request: Request, client_id: str, username: str = De
     except Exception as e:
         logger.error(f"Исключение при получении конфига {client_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/sub/hy2/{client_id}")
+async def get_hy2_sub(client_id: str, request: Request):
+    db = load_clients_db()
+    if client_id not in db:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    hy2_password = db[client_id].get("hy2_password", "")
+    host = "blueorb.online"
+    
+    template_path = os.path.join(PANEL_DIR, "mihomo_template.yaml")
+    if not os.path.exists(template_path):
+        raise HTTPException(status_code=404, detail="Mihomo template not found on server")
+        
+    with open(template_path, "r", encoding="utf-8") as f:
+        template = f.read()
+        
+    proxy_yaml = f"""  - name: 🚀 BlueOrb Hysteria2
+    type: hysteria2
+    server: {host}
+    port: 8443
+    password: {hy2_password}
+    sni: {host}
+    skip-cert-verify: false
+"""
+    
+    # Заменяем первую встретившуюся строку `# LEAVE THIS LINE!` (в proxies)
+    template = template.replace("  # LEAVE THIS LINE!", proxy_yaml, 1)
+    
+    # Для proxy-groups добавляем имя нашего прокси 🚀 BlueOrb Hysteria2
+    template = template.replace("      # LEAVE THIS LINE!", "      - 🚀 BlueOrb Hysteria2\n      # LEAVE THIS LINE!")
+    
+    return Response(content=template, media_type="text/yaml")
 
 @app.get("/api/leaderboard")
 async def get_leaderboard(username: str = Depends(verify_credentials)):

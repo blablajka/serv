@@ -702,6 +702,12 @@
                     <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Hysteria 2 (Happ / NekoBox)</h3>
                     <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;flex: 1;">{{ hy2Text || 'Для этого старого клиента Hysteria2 пароль не сгенерирован. Пересоздайте клиента.' }}</pre>
                     <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyHy2" :disabled="!hy2Text">📋 Скопировать Hysteria2</button>
+                    
+                    <h3 style="font-size:15px; margin-bottom:8px; margin-top:16px; color: var(--accent);">Mihomo (Clash Meta)</h3>
+                    <div v-if="hy2Text" style="display: flex; gap: 8px;">
+                        <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="copyMihomo">📋 Ссылка на подписку</button>
+                        <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="downloadMihomo">⬇ Скачать YAML</button>
+                    </div>
                 </div>
 
                 <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
@@ -739,6 +745,7 @@ createApp({
         const cfgText       = ref('');
         const hy2Text       = ref('');
         const newClientName = ref('');
+        const currentCfgId  = ref('');
 
         const autoForm = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
         const manForm  = ref({ name:'', ip:'', port:51820, local_address:'10.66.66.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5 });
@@ -1014,6 +1021,7 @@ createApp({
                 const d = await r.json();
                 cfgText.value = d.config || '';
                 hy2Text.value = d.hy2_uri || '';
+                currentCfgId.value = id;
                 showCfgModal.value = true;
             } catch (e) { alert('❌ ' + e.message); }
         };
@@ -1026,6 +1034,15 @@ createApp({
             navigator.clipboard.writeText(hy2Text.value);
             alert('Скопировано Hysteria2!');
         };
+        const copyMihomo = () => {
+            const url = window.location.protocol + "//" + window.location.host + "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
+            navigator.clipboard.writeText(url);
+            alert('Ссылка на подписку скопирована: ' + url);
+        };
+        const downloadMihomo = () => {
+            const url = "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
+            window.open(url, '_blank');
+        };
 
         // ── Init ─────────────────────────────
         onMounted(() => {
@@ -1037,10 +1054,10 @@ createApp({
         return {
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
-            showAddClient, newClientName, showCfgModal, cfgText, hy2Text,
+            showAddClient, newClientName, showCfgModal, cfgText, hy2Text, currentCfgId,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg, copyHy2, editLimit, fetchLeaderboard
+            createClient, delClient, viewCfg, copyCfg, copyHy2, copyMihomo, downloadMihomo, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');
