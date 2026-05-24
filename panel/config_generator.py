@@ -97,7 +97,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                         "enabled": True,
                         "server_name": "dns.google"
                     },
-                    "detour": "Select-Outbound"
+                    "detour": "direct"
                 },
                 {"tag": "dns-local", "type": "local"}
             ],
@@ -111,7 +111,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                         "wide-youtube.l.google.com", "youtube-ui.l.google.com",
                         "yt-video-upload.l.google.com", "ytimg.l.google.com"
                     ],
-                    "server": "dns-local"
+                    "server": "dns-google"
                 }
             ],
             "final": "dns-cloudflare",
