@@ -542,7 +542,8 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     if res.status_code in [200, 201]:
         hy2_password = secrets.token_urlsafe(12)
         db = load_clients_db()
-        if data["id"] not in db: db[data["id"]] = {}
+        if data["id"] not in db: 
+            db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
         db[data["id"]]["hy2_password"] = hy2_password
         save_clients_db(db)
         try:
@@ -889,10 +890,11 @@ async def client_traffic_loop():
 
                 limit = c_db.get("limit_gb", 1024)
                 is_throttled = c_db.get("is_throttled", False)
-                if c_db["all_time_gb"] >= limit and not is_throttled:
+                all_time_gb = c_db.get("all_time_gb", 0)
+                if all_time_gb >= limit and not is_throttled:
                     c_db["is_throttled"] = True
                     changed = True
-                elif c_db["all_time_gb"] < limit and is_throttled:
+                elif all_time_gb < limit and is_throttled:
                     c_db["is_throttled"] = False
                     changed = True
 
