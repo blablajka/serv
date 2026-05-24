@@ -699,20 +699,10 @@
             
             <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
-                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Hysteria 2 (Happ / NekoBox)</h3>
-                    <pre style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#4ade80;white-space:pre-wrap;word-break:break-all;flex: 1;">{{ hy2Text || 'Для этого старого клиента Hysteria2 пароль не сгенерирован. Пересоздайте клиента.' }}</pre>
-                    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyHy2" :disabled="!hy2Text">📋 Скопировать Hysteria2</button>
-                    
-                    <h3 style="font-size:15px; margin-bottom:8px; margin-top:16px; color: var(--accent);">Mihomo (Clash Meta)</h3>
-                    <div v-if="hy2Text" style="display: flex; gap: 8px; flex-direction: column;">
-                        <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:13px;color:#fff;">
-                            <div><b>Domain:</b> {{ hy2Host }}</div>
-                            <div style="margin-top: 8px;"><b>Login:Pass:</b> {{ hy2Password }}</div>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="copyMihomo">📋 Ссылка на подписку</button>
-                            <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="downloadMihomo">⬇ Скачать YAML</button>
-                        </div>
+                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Hysteria 2 Данные</h3>
+                    <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:14px;color:#fff; flex: 1;">
+                        <div style="margin-bottom: 12px;"><b>Домен:</b> <span style="color:#4ade80;">{{ hy2Host || 'blueorb.online' }}</span></div>
+                        <div><b>Пароль:</b> <span style="color:#4ade80;">{{ hy2Password || 'Не сгенерирован (старый клиент)' }}</span></div>
                     </div>
                 </div>
 
@@ -1061,17 +1051,6 @@ createApp({
         const copyCfg = () => {
             copyTextFallback(cfgText.value, 'Скопировано AWG!');
         };
-        const copyHy2 = () => {
-            copyTextFallback(hy2Text.value, 'Скопировано Hysteria2!');
-        };
-        const copyMihomo = () => {
-            const url = window.location.protocol + "//" + window.location.host + "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
-            copyTextFallback(url, 'Ссылка на подписку скопирована: ' + url);
-        };
-        const downloadMihomo = () => {
-            const url = "/api/sub/hy2/" + encodeURIComponent(currentCfgId.value);
-            window.open(url, '_blank');
-        };
 
         // ── Init ─────────────────────────────
         onMounted(() => {
@@ -1086,7 +1065,7 @@ createApp({
             showAddClient, newClientName, showCfgModal, cfgText, hy2Text, hy2Password, hy2Host, currentCfgId,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg, copyHy2, copyMihomo, downloadMihomo, editLimit, fetchLeaderboard
+            createClient, delClient, viewCfg, copyCfg, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');
