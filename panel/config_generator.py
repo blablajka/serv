@@ -89,7 +89,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
     if not hy2_users:
         hy2_users.append({"password": "testpassword123"})
 
-    masquerade_url = "https://www.bing.com"
+    masquerade_url = "https://disk.yandex.ru"
     domains_txt_path = "/opt/smart_vpn/Reality-SNI-Finder/domains.txt"
     if os.path.exists(domains_txt_path):
         try:
