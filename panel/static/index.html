@@ -704,9 +704,15 @@
                     <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" @click="copyHy2" :disabled="!hy2Text">📋 Скопировать Hysteria2</button>
                     
                     <h3 style="font-size:15px; margin-bottom:8px; margin-top:16px; color: var(--accent);">Mihomo (Clash Meta)</h3>
-                    <div v-if="hy2Text" style="display: flex; gap: 8px;">
-                        <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="copyMihomo">📋 Ссылка на подписку</button>
-                        <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="downloadMihomo">⬇ Скачать YAML</button>
+                    <div v-if="hy2Text" style="display: flex; gap: 8px; flex-direction: column;">
+                        <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:13px;color:#fff;">
+                            <div><b>Domain:</b> {{ hy2Host }}</div>
+                            <div style="margin-top: 8px;"><b>Login:Pass:</b> {{ hy2Password }}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="copyMihomo">📋 Ссылка на подписку</button>
+                            <button class="btn btn-success" style="flex: 1; justify-content:center;" @click="downloadMihomo">⬇ Скачать YAML</button>
+                        </div>
                     </div>
                 </div>
 
@@ -744,6 +750,8 @@ createApp({
         const showCfgModal  = ref(false);
         const cfgText       = ref('');
         const hy2Text       = ref('');
+        const hy2Password   = ref('');
+        const hy2Host       = ref('');
         const newClientName = ref('');
         const currentCfgId  = ref('');
 
@@ -1021,6 +1029,8 @@ createApp({
                 const d = await r.json();
                 cfgText.value = d.config || '';
                 hy2Text.value = d.hy2_uri || '';
+                hy2Password.value = d.hy2_password || '';
+                hy2Host.value = d.host || '';
                 currentCfgId.value = id;
                 showCfgModal.value = true;
             } catch (e) { alert('❌ ' + e.message); }
@@ -1073,7 +1083,7 @@ createApp({
         return {
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
-            showAddClient, newClientName, showCfgModal, cfgText, hy2Text, currentCfgId,
+            showAddClient, newClientName, showCfgModal, cfgText, hy2Text, hy2Password, hy2Host, currentCfgId,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
             createClient, delClient, viewCfg, copyCfg, copyHy2, copyMihomo, downloadMihomo, editLimit, fetchLeaderboard

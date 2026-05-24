@@ -606,7 +606,7 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 hy2_password = db.get(client_id, {}).get("hy2_password", "")
                 host = "blueorb.online"
                 hy2_uri = f"hysteria2://{hy2_password}@{host}:8443/?sni={host}#{client_id}"
-                return {"config": awg_config, "hy2_uri": hy2_uri}
+                return {"config": awg_config, "hy2_uri": hy2_uri, "hy2_password": hy2_password, "host": host}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
