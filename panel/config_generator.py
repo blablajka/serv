@@ -111,7 +111,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                         "wide-youtube.l.google.com", "youtube-ui.l.google.com",
                         "yt-video-upload.l.google.com", "ytimg.l.google.com"
                     ],
-                    "server": "dns-google"
+                    "server": "dns-local"
                 }
             ],
             "final": "dns-cloudflare",
