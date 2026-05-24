@@ -515,10 +515,21 @@ async def get_clients(username: str = Depends(verify_credentials)):
                 
     return awg_data
 
+last_client_creation = {}
+
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
-    import uuid, re
+    global last_client_creation
+    import uuid, re, time
     data = await request.json()
+    
+    # Защита от дублей (двойных кликов)
+    name = data.get("name", "")
+    now = time.time()
+    if name in last_client_creation and (now - last_client_creation[name]) < 5:
+        return JSONResponse(content={"error": "Двойной клик заблокирован. Подождите пару секунд."}, status_code=429)
+    last_client_creation[name] = now
+    
     logger.info(f"Поступил запрос на создание клиента: {data}")
 
     # awg-server требует поле "id" (name он не поддерживает)
