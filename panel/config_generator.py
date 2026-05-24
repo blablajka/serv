@@ -112,6 +112,12 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 {"inbound": "tun-in", "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {
+                    "network": "udp",
+                    "port": 443,
+                    "domain_suffix": ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com"],
+                    "action": "reject"
+                },
+                {
                     "domain_suffix": [
                         "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
                         "discord.com", "discord.gg", "discordapp.net"
