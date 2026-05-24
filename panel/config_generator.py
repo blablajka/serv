@@ -75,7 +75,17 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "log": {"level": "info", "timestamp": True},
         "dns": {
             "servers": [
-                {"tag": "dns-yandex", "type": "udp", "server": "77.88.8.8", "detour": "direct"},
+                {
+                    "tag": "dns-yandex",
+                    "type": "tls",
+                    "server": "77.88.8.8",
+                    "server_port": 853,
+                    "tls": {
+                        "enabled": True,
+                        "server_name": "common.dot.dns.yandex.net"
+                    },
+                    "detour": "direct"
+                },
                 {"tag": "dns-google", "type": "udp", "server": "8.8.8.8", "detour": "Select-Outbound"},
                 {"tag": "dns-local", "type": "local"}
             ],
