@@ -704,6 +704,34 @@ async def set_client_limit(client_id: str, payload: dict, username: str = Depend
     save_clients_db(db)
     return {"status": "ok"}
 
+@app.get("/api/diagnostics/logs")
+async def get_diagnostics_logs(service: str = "sing-box", username: str = Depends(verify_credentials)):
+    try:
+        from fastapi.responses import JSONResponse
+        if service == "syslog":
+            cmd = ["journalctl", "-n", "500", "--no-pager"]
+        elif service in ["sing-box", "awg-server", "smart-vpn-panel"]:
+            cmd = ["journalctl", "-u", service, "-n", "500", "--no-pager"]
+        else:
+            return JSONResponse(content={"error": "Неизвестный сервис"}, status_code=400)
+            
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        
+        log_text = stdout.decode('utf-8', errors='replace')
+        if not log_text.strip() and stderr:
+            log_text += "\n" + stderr.decode('utf-8', errors='replace')
+            
+        return {"service": service, "logs": log_text}
+    except Exception as e:
+        from fastapi.responses import JSONResponse
+        logger.error(f"Ошибка при получении логов для {service}: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 # --- Orchestrator Logic ---
 last_orchestrator_stats = {}
 
