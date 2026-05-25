@@ -671,7 +671,7 @@ async def get_subscription(client_id: str):
           "password": stls_password,
           "tls": {
             "enabled": True,
-            "server_name": "www.bing.com",
+            "server_name": "disk.yandex.ru",
             "utls": {
               "enabled": True,
               "fingerprint": "chrome"

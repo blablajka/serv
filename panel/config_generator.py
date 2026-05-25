@@ -137,7 +137,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             ],
             "rules": [
                 {
-                    "domain": [domain, "www.bing.com"],
+                    "domain": [domain, "disk.yandex.ru"],
                     "server": "dns-local"
                 },
                 {
@@ -179,7 +179,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                     }
                 ],
                 "handshake": {
-                    "server": "www.bing.com",
+                    "server": "disk.yandex.ru",
                     "server_port": 443
                 },
                 "detour": "ss-in"
