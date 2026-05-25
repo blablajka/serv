@@ -708,10 +708,28 @@ async def set_client_limit(client_id: str, payload: dict, username: str = Depend
 async def get_diagnostics_logs(service: str = "sing-box", username: str = Depends(verify_credentials)):
     try:
         from fastapi.responses import JSONResponse
-        if service == "syslog":
-            cmd = ["journalctl", "-n", "500", "--no-pager"]
+        if service == "llm":
+            sources = ["sing-box", "awg-server", "smart-vpn-panel", "syslog"]
+            log_text = ""
+            for s in sources:
+                if s == "syslog":
+                    cmd = ["journalctl", "-n", "20", "--no-pager"]
+                else:
+                    cmd = ["journalctl", "-u", s, "-n", "20", "--no-pager"]
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout, stderr = await process.communicate()
+                out = stdout.decode('utf-8', errors='replace')
+                log_text += f"\n\n=== {s.upper()} ===\n{out.strip()}"
+            return {"service": service, "logs": log_text.strip()}
+            
+        elif service == "syslog":
+            cmd = ["journalctl", "-n", "30", "--no-pager"]
         elif service in ["sing-box", "awg-server", "smart-vpn-panel"]:
-            cmd = ["journalctl", "-u", service, "-n", "500", "--no-pager"]
+            cmd = ["journalctl", "-u", service, "-n", "30", "--no-pager"]
         else:
             return JSONResponse(content={"error": "Неизвестный сервис"}, status_code=400)
             
