@@ -161,8 +161,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "tag": "tun-in",
                 "interface_name": "tun0",
                 "address": ["10.255.0.1/24"],
-                "auto_route": False,
-                "strict_route": False,
+                "auto_route": True,
+                "strict_route": True,
                 "endpoint_independent_nat": True,
                 "stack": "system"
             },
