@@ -5,6 +5,8 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 import httpx
 import json
+import secrets
+import base64
 import os
 import subprocess
 import asyncio
@@ -830,6 +832,29 @@ async def get_diagnostics_logs(service: str = "sing-box", username: str = Depend
         if service == "llm":
             sources = ["sing-box", "awg-server", "smart-vpn-panel", "syslog"]
             log_text = ""
+            
+            # Additional system info
+            sys_cmds = {
+                "SING-BOX CONFIG": ["cat", "/etc/sing-box/config.json"],
+                "IP ROUTES": ["ip", "route"],
+                "NETWORK PORTS": ["ss", "-tulnp"],
+                "IPTABLES": ["iptables-save"],
+                "RESOLV.CONF": ["cat", "/etc/resolv.conf"]
+            }
+            for title, cmd in sys_cmds.items():
+                try:
+                    process = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    stdout, stderr = await process.communicate()
+                    out = stdout.decode('utf-8', errors='replace')
+                    if out.strip():
+                        log_text += f"\n\n=== {title} ===\n{out.strip()}"
+                except Exception:
+                    pass
+                    
             for s in sources:
                 if s == "syslog":
                     cmd = ["journalctl", "-n", "20", "--no-pager"]
