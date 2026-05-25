@@ -619,7 +619,7 @@ async def ensure_ss_passwords():
             if "domain" not in db["__global__"]:
                 db["__global__"]["domain"] = "blueorb.online"
                 need_save = True
-            if "stls_password" not in db["__global__"]:
+            if "stls_password" not in db["__global__"] or len(db["__global__"]["stls_password"]) != 32:
                 db["__global__"]["stls_password"] = secrets.token_hex(16)
                 need_save = True
                 
@@ -743,7 +743,7 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 if "domain" not in db["__global__"]:
                     db["__global__"]["domain"] = "blueorb.online"
                     need_save = True
-                if "stls_password" not in db["__global__"]:
+                if "stls_password" not in db["__global__"] or len(db["__global__"]["stls_password"]) != 32:
                     db["__global__"]["stls_password"] = secrets.token_hex(16)
                     need_save = True
                     
