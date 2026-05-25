@@ -165,7 +165,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "password": ss_server_password,
                 "users": ss_users,
                 "multiplex": {
-                    "enabled": False
+                    "enabled": True
                 }
             }
         ],
