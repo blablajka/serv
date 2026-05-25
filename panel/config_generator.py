@@ -165,7 +165,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "password": ss_server_password,
                 "users": ss_users,
                 "multiplex": {
-                    "enabled": True
+                    "enabled": False
                 }
             }
         ],
@@ -173,7 +173,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"inbound": "tun-in", "action": "sniff"},
+                {"inbound": ["tun-in", "ss-in"], "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {
                     "network": "udp",
