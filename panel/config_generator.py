@@ -159,7 +159,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             {
                 "type": "shadowsocks",
                 "tag": "ss-in",
-                "listen": "::",
+                "listen": "0.0.0.0",
                 "listen_port": 8388,
                 "method": "2022-blake3-aes-256-gcm",
                 "password": ss_server_password,

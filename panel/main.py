@@ -1010,6 +1010,13 @@ async def startup_event():
         except:
             servers = []
         generate_singbox_config(servers, CONFIG_FILE)
+        
+        # Открываем порты для sing-box
+        os.system("iptables -C INPUT -p tcp --dport 8388 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 8388 -j ACCEPT")
+        os.system("iptables -C INPUT -p udp --dport 8388 -j ACCEPT 2>/dev/null || iptables -I INPUT -p udp --dport 8388 -j ACCEPT")
+        os.system("ufw allow 8388/tcp >/dev/null 2>&1 || true")
+        os.system("ufw allow 8388/udp >/dev/null 2>&1 || true")
+        
         os.system("systemctl restart sing-box")
     except Exception as e:
         logger.error(f"Ошибка при миграции и рестарте sing-box: {e}")
