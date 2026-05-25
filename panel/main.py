@@ -643,7 +643,7 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 # SIP002/SIP022 compliant URI format for Multi-User SS-2022
                 # NO base64 encoding of the entire block! Percent-encode the special chars.
                 psk_block = f"{ss_server_password}:{ss_password}"
-                encoded_psk = urllib.parse.quote(psk_block)
+                encoded_psk = urllib.parse.quote(psk_block, safe='')
                 ss_uri = f"ss://2022-blake3-aes-256-gcm:{encoded_psk}@{host}:8388#{client_id}"
                 
                 
