@@ -981,6 +981,39 @@ async def client_traffic_loop():
 @app.on_event("startup")
 async def startup_event():
     logger.info("Запуск Orchestrator Loop и Client Traffic Loop...")
+    
+    # Миграция SS-2022 на 32-байтные ключи при запуске
+    try:
+        db = load_clients_db()
+        need_save = False
+        import secrets
+        import base64
+        if "__global__" not in db:
+            db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
+            need_save = True
+        elif "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) < 40:
+            db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+            need_save = True
+            
+        for cid, data in db.items():
+            if cid == "__global__": continue
+            if not data.get("ss_password") or len(data.get("ss_password", "")) < 40:
+                data["ss_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+                need_save = True
+                
+        if need_save:
+            save_clients_db(db)
+            
+        try:
+            with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                servers = json.load(f)
+        except:
+            servers = []
+        generate_singbox_config(servers, CONFIG_FILE)
+        os.system("systemctl restart sing-box")
+    except Exception as e:
+        logger.error(f"Ошибка при миграции и рестарте sing-box: {e}")
+    
     asyncio.create_task(orchestrator_loop())
     asyncio.create_task(client_traffic_loop())
 
