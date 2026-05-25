@@ -596,11 +596,14 @@
                         <option value="syslog">Системный журнал (Syslog)</option>
                     </select>
                 </div>
-                <button class="btn" @click="fetchLogs" :disabled="diagLoading">
+                <button class="btn" @click="fetchDiagLogs" :disabled="diagLoading">
                     <span v-if="!diagLoading">🔄 Обновить логи</span>
                     <span v-else>Загрузка...</span>
                 </button>
-                <button class="btn btn-out" @click="downloadLogs" :disabled="!diagLogs || diagLoading">
+                <button class="btn btn-out" @click="copyDiagLogs" :disabled="!diagLogs || diagLoading">
+                    📋 Скопировать всё
+                </button>
+                <button class="btn btn-out" @click="downloadDiagLogs" :disabled="!diagLogs || diagLoading">
                     💾 Скачать .txt
                 </button>
             </div>
@@ -1093,6 +1096,35 @@ createApp({
             copyTextFallback(ssUri.value, 'Ссылка Shadowsocks-2022 скопирована!');
         };
 
+        const fetchDiagLogs = async () => {
+            diagLoading.value = true;
+            diagLogs.value = "Загрузка логов...";
+            try {
+                const res = await fetch(`/api/diagnostics/logs?service=${diagService.value}`);
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                diagLogs.value = data.logs;
+            } catch (e) {
+                diagLogs.value = "Ошибка: " + e.message;
+            } finally {
+                diagLoading.value = false;
+            }
+        };
+
+        const copyDiagLogs = () => {
+            copyTextFallback(diagLogs.value, 'Логи скопированы!');
+        };
+
+        const downloadDiagLogs = () => {
+            const blob = new Blob([diagLogs.value], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs-${diagService.value}-${new Date().toISOString().replace(/:/g, '-')}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
         // ── Init ─────────────────────────────
         onMounted(() => {
             fetchStatus(); fetchServers(); fetchClients(); fetchLogs();
@@ -1104,6 +1136,7 @@ createApp({
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
             showAddClient, newClientName, showCfgModal, cfgText, ssPassword, ssHost, ssUri, currentCfgId,
+            diagService, diagLogs, diagLoading, fetchDiagLogs, copyDiagLogs, downloadDiagLogs,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
             createClient, delClient, viewCfg, copyCfg, copySSUri, editLimit, fetchLeaderboard
