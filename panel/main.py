@@ -839,7 +839,9 @@ async def get_diagnostics_logs(service: str = "sing-box", username: str = Depend
                 "IP ROUTES": ["ip", "route"],
                 "NETWORK PORTS": ["ss", "-tulnp"],
                 "IPTABLES": ["iptables-save"],
-                "RESOLV.CONF": ["cat", "/etc/resolv.conf"]
+                "RESOLV.CONF": ["cat", "/etc/resolv.conf"],
+                "CLOUDFLARE CONNECTIVITY": ["curl", "-I", "-v", "-m", "5", "https://www.cloudflare.com"],
+                "SS LOCAL TCP CHECK": ["curl", "-v", "telnet://127.0.0.1:8388", "--max-time", "3"]
             }
             for title, cmd in sys_cmds.items():
                 try:
