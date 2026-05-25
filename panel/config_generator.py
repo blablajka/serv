@@ -73,14 +73,18 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
 
     ss_users = []
     ss_server_password = ""
+    ws_path = "/secret-path"
+    domain = "blueorb.online"
     clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
     try:
         if os.path.exists(clients_db_path):
             with open(clients_db_path, "r", encoding="utf-8") as f:
-                clients_db = json.load(f)
-                ss_server_password = clients_db.get("__global__", {}).get("ss_server_password", "")
-                if len(ss_server_password) < 40: ss_server_password = "" # force regenerate if old 16-byte key
-                for cid, data in clients_db.items():
+                db = json.load(f)
+                if "__global__" in db:
+                    ss_server_password = db["__global__"].get("ss_server_password", "")
+                    ws_path = db["__global__"].get("ws_path", ws_path)
+                    domain = db["__global__"].get("domain", domain)
+                for cid, data in db.items():
                     if cid == "__global__": continue
                     if "ss_password" in data:
                         pw = data["ss_password"]
@@ -159,13 +163,33 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             {
                 "type": "shadowsocks",
                 "tag": "ss-in",
-                "listen": "0.0.0.0",
-                "listen_port": 8388,
-                "method": "2022-blake3-aes-256-gcm",
+                "listen": "::",
+                "listen_port": 443,
+                "method": "2022-blake3-aes-128-gcm",
                 "password": ss_server_password,
                 "users": ss_users,
+                "transport": {
+                    "type": "ws",
+                    "path": ws_path,
+                    "headers": {
+                        "Host": domain
+                    }
+                },
+                "tls": {
+                    "enabled": True,
+                    "server_name": domain,
+                    "acme": {
+                        "domain": [domain],
+                        "email": "torontotokyosaka@gmail.com",
+                        "provider": "letsencrypt"
+                    }
+                },
                 "multiplex": {
-                    "enabled": True
+                    "enabled": True,
+                    "padding": True,
+                    "brutal": {
+                        "enabled": False
+                    }
                 }
             }
         ],

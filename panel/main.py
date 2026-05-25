@@ -596,6 +596,112 @@ async def delete_client(client_id: str, username: str = Depends(verify_credentia
             os.system("systemctl restart sing-box")
     return res
 
+async def ensure_ss_passwords():
+    db_path = os.path.join(PANEL_DIR, "clients_db.json")
+    if os.path.exists(db_path):
+        try:
+            with open(db_path, "r", encoding="utf-8") as f:
+                db = json.load(f)
+            import secrets
+            import base64
+            need_save = False
+            if "__global__" not in db:
+                db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
+                need_save = True
+            if "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) < 40:
+                db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+                need_save = True
+            if "ws_path" not in db["__global__"]:
+                db["__global__"]["ws_path"] = f"/ws-{secrets.token_hex(4)}"
+                need_save = True
+            if "domain" not in db["__global__"]:
+                db["__global__"]["domain"] = "blueorb.online"
+                need_save = True
+                
+            for cid, data in db.items():
+                if cid == "__global__": continue
+                if not data.get("ss_password") or len(data.get("ss_password", "")) < 40:
+                    data["ss_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+                    need_save = True
+                    
+            if need_save:
+                with open(db_path, "w", encoding="utf-8") as f:
+                    json.dump(db, f, indent=2)
+        except Exception as e:
+            logger.error(f"Error checking SS passwords: {e}")
+
+@app.get("/sub/{client_id}")
+async def get_subscription(client_id: str):
+    db = load_clients_db()
+    if client_id not in db:
+        raise HTTPException(status_code=404, detail="Client not found")
+        
+    ss_password = db[client_id].get("ss_password", "")
+    ss_server_password = db.get("__global__", {}).get("ss_server_password", "")
+    ws_path = db.get("__global__", {}).get("ws_path", "/stream")
+    host = db.get("__global__", {}).get("domain", "blueorb.online")
+    
+    config = {
+      "log": {
+        "level": "warn",
+        "timestamp": True
+      },
+      "outbounds": [
+        {
+          "type": "shadowsocks",
+          "tag": "proxy",
+          "server": host,
+          "server_port": 443,
+          "method": "2022-blake3-aes-128-gcm",
+          "password": f"{ss_server_password}:{ss_password}",
+          "transport": {
+            "type": "ws",
+            "path": ws_path,
+            "headers": {
+              "Host": host
+            }
+          },
+          "tls": {
+            "enabled": True,
+            "server_name": host
+          },
+          "multiplex": {
+            "enabled": True,
+            "padding": True
+          }
+        },
+        {
+          "type": "direct",
+          "tag": "direct"
+        }
+      ],
+      "inbounds": [
+        {
+          "type": "mixed",
+          "tag": "mixed-in",
+          "listen": "127.0.0.1",
+          "listen_port": 2080
+        }
+      ],
+      "route": {
+        "auto_detect_interface": True,
+        "rules": [
+          {
+            "geoip": "ru",
+            "outbound": "direct"
+          },
+          {
+            "geosite": "ru",
+            "outbound": "direct"
+          }
+        ],
+        "final": "proxy"
+      }
+    }
+    
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=config)
+
 @app.get("/api/clients/{client_id}/config")
 async def get_client_config(request: Request, client_id: str, username: str = Depends(verify_credentials)):
     headers = {"Authorization": f"Bearer {AWG_TOKEN}"} if AWG_TOKEN else {}
@@ -618,8 +724,14 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 if "__global__" not in db:
                     db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
                     need_save = True
-                elif "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) < 40:
+                if "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) < 40:
                     db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+                    need_save = True
+                if "ws_path" not in db["__global__"]:
+                    db["__global__"]["ws_path"] = f"/ws-{secrets.token_hex(4)}"
+                    need_save = True
+                if "domain" not in db["__global__"]:
+                    db["__global__"]["domain"] = "blueorb.online"
                     need_save = True
                     
                 if not db[client_id].get("ss_password") or len(db[client_id].get("ss_password", "")) < 40:
@@ -638,16 +750,12 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                     
                 ss_password = db[client_id]["ss_password"]
                 ss_server_password = db["__global__"]["ss_server_password"]
-                host = "blueorb.online"
+                host = db["__global__"].get("domain", "blueorb.online")
                 
-                # SIP002/SIP022 compliant URI format for Multi-User SS-2022
-                # NO base64 encoding of the entire block! Percent-encode the special chars.
-                psk_block = f"{ss_server_password}:{ss_password}"
-                encoded_psk = urllib.parse.quote(psk_block, safe='')
-                ss_uri = f"ss://2022-blake3-aes-256-gcm:{encoded_psk}@{host}:8388#{client_id}"
+                # Возвращаем ссылку на подписку вместо ss_uri
+                sub_url = f"https://{host}:5000/sub/{client_id}"
                 
-                
-                return {"config": awg_config, "ss_password": ss_password, "ss_uri": ss_uri, "host": host}
+                return {"config": awg_config, "ss_password": ss_password, "ss_uri": sub_url, "host": host}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
@@ -1057,11 +1165,13 @@ async def startup_event():
             servers = []
         generate_singbox_config(servers, CONFIG_FILE)
         
-        # Открываем порты для sing-box
-        os.system("iptables -C INPUT -p tcp --dport 8388 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 8388 -j ACCEPT")
-        os.system("iptables -C INPUT -p udp --dport 8388 -j ACCEPT 2>/dev/null || iptables -I INPUT -p udp --dport 8388 -j ACCEPT")
-        os.system("ufw allow 8388/tcp >/dev/null 2>&1 || true")
-        os.system("ufw allow 8388/udp >/dev/null 2>&1 || true")
+        # Открываем порты для sing-box (443 для Shadowsocks, 80 для ACME Let's Encrypt)
+        os.system("iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 443 -j ACCEPT")
+        os.system("iptables -C INPUT -p udp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p udp --dport 443 -j ACCEPT")
+        os.system("iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 80 -j ACCEPT")
+        os.system("ufw allow 443/tcp >/dev/null 2>&1 || true")
+        os.system("ufw allow 443/udp >/dev/null 2>&1 || true")
+        os.system("ufw allow 80/tcp >/dev/null 2>&1 || true")
         
         os.system("systemctl restart sing-box")
     except Exception as e:
