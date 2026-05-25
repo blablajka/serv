@@ -73,6 +73,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
 
     ss_users = []
     ss_server_password = ""
+    stls_password = "shadowtls-secret"
     ws_path = "/secret-path"
     domain = "blueorb.online"
     clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
@@ -82,6 +83,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 db = json.load(f)
                 if "__global__" in db:
                     ss_server_password = db["__global__"].get("ss_server_password", "")
+                    stls_password = db["__global__"].get("stls_password", stls_password)
                     ws_path = db["__global__"].get("ws_path", ws_path)
                     domain = db["__global__"].get("domain", domain)
                 for cid, data in db.items():
@@ -161,35 +163,29 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "stack": "system"
             },
             {
-                "type": "shadowsocks",
-                "tag": "ss-in",
+                "type": "shadowtls",
+                "tag": "stls-in",
                 "listen": "::",
                 "listen_port": 443,
+                "version": 3,
+                "password": stls_password,
+                "handshake": {
+                    "server": "www.bing.com",
+                    "server_port": 443
+                },
+                "detour": "ss-in"
+            },
+            {
+                "type": "shadowsocks",
+                "tag": "ss-in",
+                "listen": "127.0.0.1",
+                "listen_port": 8388,
                 "method": "2022-blake3-aes-128-gcm",
                 "password": ss_server_password,
                 "users": ss_users,
-                "transport": {
-                    "type": "ws",
-                    "path": ws_path,
-                    "headers": {
-                        "Host": domain
-                    }
-                },
-                "tls": {
-                    "enabled": True,
-                    "server_name": domain,
-                    "acme": {
-                        "domain": [domain],
-                        "email": "torontotokyosaka@gmail.com",
-                        "provider": "letsencrypt"
-                    }
-                },
                 "multiplex": {
                     "enabled": True,
-                    "padding": True,
-                    "brutal": {
-                        "enabled": False
-                    }
+                    "padding": True
                 }
             }
         ],
@@ -197,7 +193,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"inbound": ["tun-in", "ss-in"], "action": "sniff"},
+                {"inbound": ["tun-in", "stls-in", "ss-in"], "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {
                     "network": "udp",

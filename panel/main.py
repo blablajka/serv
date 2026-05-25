@@ -617,6 +617,9 @@ async def ensure_ss_passwords():
             if "domain" not in db["__global__"]:
                 db["__global__"]["domain"] = "blueorb.online"
                 need_save = True
+            if "stls_password" not in db["__global__"]:
+                db["__global__"]["stls_password"] = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
+                need_save = True
                 
             for cid, data in db.items():
                 if cid == "__global__": continue
@@ -640,6 +643,7 @@ async def get_subscription(client_id: str):
     ss_server_password = db.get("__global__", {}).get("ss_server_password", "")
     ws_path = db.get("__global__", {}).get("ws_path", "/stream")
     host = db.get("__global__", {}).get("domain", "blueorb.online")
+    stls_password = db.get("__global__", {}).get("stls_password", "shadowtls-secret")
     
     config = {
       "log": {
@@ -654,20 +658,22 @@ async def get_subscription(client_id: str):
           "server_port": 443,
           "method": "2022-blake3-aes-128-gcm",
           "password": f"{ss_server_password}:{ss_password}",
-          "transport": {
-            "type": "ws",
-            "path": ws_path,
-            "headers": {
-              "Host": host
-            }
-          },
-          "tls": {
-            "enabled": True,
-            "server_name": host
-          },
+          "detour": "stls-out",
           "multiplex": {
             "enabled": True,
             "padding": True
+          }
+        },
+        {
+          "type": "shadowtls",
+          "tag": "stls-out",
+          "server": host,
+          "server_port": 443,
+          "version": 3,
+          "password": stls_password,
+          "tls": {
+            "enabled": True,
+            "server_name": "www.bing.com"
           }
         },
         {
@@ -732,6 +738,9 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                     need_save = True
                 if "domain" not in db["__global__"]:
                     db["__global__"]["domain"] = "blueorb.online"
+                    need_save = True
+                if "stls_password" not in db["__global__"]:
+                    db["__global__"]["stls_password"] = base64.b64encode(secrets.token_bytes(16)).decode('utf-8')
                     need_save = True
                     
                 if not db[client_id].get("ss_password") or len(db[client_id].get("ss_password", "")) < 40:
