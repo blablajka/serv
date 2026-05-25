@@ -137,7 +137,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             ],
             "rules": [
                 {
-                    "domain": [domain, "apple.com"],
+                    "domain": [domain, "www.cloudflare.com"],
                     "server": "dns-local"
                 },
                 {
@@ -179,7 +179,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                     }
                 ],
                 "handshake": {
-                    "server": "apple.com",
+                    "server": "www.cloudflare.com",
                     "server_port": 443
                 },
                 "detour": "ss-in"
