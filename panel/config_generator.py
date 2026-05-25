@@ -168,7 +168,11 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "listen": "::",
                 "listen_port": 443,
                 "version": 3,
-                "password": stls_password,
+                "users": [
+                    {
+                        "password": stls_password
+                    }
+                ],
                 "handshake": {
                     "server": "www.bing.com",
                     "server_port": 443
