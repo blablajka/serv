@@ -137,6 +137,10 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             ],
             "rules": [
                 {
+                    "domain": [domain, "www.bing.com"],
+                    "server": "dns-local"
+                },
+                {
                     "domain_suffix": [
                         "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com",
                         "youtube.googleapis.com", "youtubei.googleapis.com",
@@ -170,6 +174,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "version": 3,
                 "users": [
                     {
+                        "name": "default",
                         "password": stls_password
                     }
                 ],
@@ -197,7 +202,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"inbound": ["tun-in", "stls-in", "ss-in"], "action": "sniff"},
+                {"inbound": ["tun-in"], "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {
                     "network": "udp",
