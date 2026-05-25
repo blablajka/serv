@@ -270,8 +270,8 @@ for i in {1..10}; do
     sleep 1
 done
 
-iptables -t nat -A POSTROUTING -s 10.255.0.0/24 -o tun0 -j MASQUERADE || true
-iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -o tun0 -j MASQUERADE || true
+iptables -t nat -C POSTROUTING -s 10.255.0.0/24 ! -o tun0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.255.0.0/24 ! -o tun0 -j MASQUERADE
+iptables -t nat -C POSTROUTING -s 10.99.0.0/24 ! -o tun0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.99.0.0/24 ! -o tun0 -j MASQUERADE
 ip rule add from 10.255.0.0/24 lookup 100 || true
 ip rule add from 10.99.0.0/24 lookup 100 || true
 ip route add default dev tun0 table 100 || true
