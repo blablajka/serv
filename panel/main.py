@@ -654,8 +654,6 @@ async def get_subscription(client_id: str):
         {
           "type": "shadowsocks",
           "tag": "proxy",
-          "server": host,
-          "server_port": 443,
           "method": "2022-blake3-aes-128-gcm",
           "password": f"{ss_server_password}:{ss_password}",
           "detour": "stls-out",
@@ -673,7 +671,11 @@ async def get_subscription(client_id: str):
           "password": stls_password,
           "tls": {
             "enabled": True,
-            "server_name": "www.bing.com"
+            "server_name": "www.bing.com",
+            "utls": {
+              "enabled": True,
+              "fingerprint": "chrome"
+            }
           }
         },
         {
