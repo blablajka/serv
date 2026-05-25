@@ -113,7 +113,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                         "enabled": True,
                         "server_name": "cloudflare-dns.com"
                     },
-                    "detour": "Select-Outbound"
+                    "detour": "direct"
                 },
                 {
                     "tag": "dns-google",

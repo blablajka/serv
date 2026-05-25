@@ -316,6 +316,7 @@
             <button class="nav-btn" :class="{active: tab==='servers'}"  @click="tab='servers'">Серверы</button>
             <button class="nav-btn" :class="{active: tab==='clients'}"  @click="tab='clients'">Клиенты</button>
             <button class="nav-btn" :class="{active: tab==='leaderboard'}" @click="fetchLeaderboard(); tab='leaderboard'">🏆 Leaderboard</button>
+            <button class="nav-btn" :class="{active: tab==='diagnostics'}" @click="tab='diagnostics'">Диагностика</button>
         </nav>
     </header>
 
@@ -579,6 +580,34 @@
         </div>
     </div>
 
+    <!-- ══════════ DIAGNOSTICS TAB ══════════ -->
+    <div v-show="tab==='diagnostics'">
+        <div class="row-between" style="margin-bottom: 20px;">
+            <h2 style="font-size:18px;font-weight:700;">Диагностика системы</h2>
+        </div>
+        <div class="card">
+            <div style="display:flex; gap:12px; margin-bottom: 16px; align-items: flex-end;">
+                <div class="form-group" style="margin:0; width:200px;">
+                    <label class="form-label">Источник логов</label>
+                    <select class="form-input" v-model="diagService">
+                        <option value="sing-box">Sing-box (Маршрутизатор)</option>
+                        <option value="awg-server">AmneziaWG (VPN сервер)</option>
+                        <option value="smart-vpn-panel">Веб-панель</option>
+                        <option value="syslog">Системный журнал (Syslog)</option>
+                    </select>
+                </div>
+                <button class="btn" @click="fetchLogs" :disabled="diagLoading">
+                    <span v-if="!diagLoading">🔄 Обновить логи</span>
+                    <span v-else>Загрузка...</span>
+                </button>
+                <button class="btn btn-out" @click="downloadLogs" :disabled="!diagLogs || diagLoading">
+                    💾 Скачать .txt
+                </button>
+            </div>
+            <pre style="background: #111; color: #0f0; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; border: 1px solid var(--border);">{{ diagLogs || 'Нажмите "Обновить логи" для загрузки...' }}</pre>
+        </div>
+    </div>
+
     <!-- ══════════ MODAL: Add server ══════════ -->
     <div v-if="showModal" class="overlay" @click.self="showModal=false">
         <div class="modal">
@@ -744,6 +773,9 @@ createApp({
         const installing    = ref(false);
         const showAddClient = ref(false);
         const showCfgModal  = ref(false);
+        const diagService   = ref('sing-box');
+        const diagLogs      = ref('');
+        const diagLoading   = ref(false);
         const cfgText       = ref('');
         const ssPassword    = ref('');
         const ssHost        = ref('');
