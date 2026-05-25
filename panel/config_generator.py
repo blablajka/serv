@@ -189,7 +189,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "tag": "ss-in",
                 "listen": "127.0.0.1",
                 "listen_port": 8388,
-                "method": "2022-blake3-aes-128-gcm",
+                "method": "2022-blake3-aes-256-gcm",
                 "password": ss_server_password,
                 "users": ss_users,
                 "multiplex": {
