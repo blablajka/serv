@@ -137,7 +137,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             ],
             "rules": [
                 {
-                    "domain": [domain, "disk.yandex.ru"],
+                    "domain": [domain, "apple.com"],
                     "server": "dns-local"
                 },
                 {
@@ -179,7 +179,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                     }
                 ],
                 "handshake": {
-                    "server": "disk.yandex.ru",
+                    "server": "apple.com",
                     "server_port": 443
                 },
                 "detour": "ss-in"

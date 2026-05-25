@@ -673,7 +673,7 @@ async def get_subscription(client_id: str):
           "password": stls_password,
           "tls": {
             "enabled": True,
-            "server_name": "disk.yandex.ru",
+            "server_name": "apple.com",
             "utls": {
               "enabled": True,
               "fingerprint": "chrome"
