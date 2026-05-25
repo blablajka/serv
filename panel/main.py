@@ -762,7 +762,7 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 host = db["__global__"].get("domain", "blueorb.online")
                 
                 # Возвращаем ссылку на подписку вместо ss_uri
-                sub_url = f"https://{host}:5000/sub/{client_id}"
+                sub_url = f"http://{host}:5000/sub/{client_id}"
                 
                 return {"config": awg_config, "ss_password": ss_password, "ss_uri": sub_url, "host": host}
             else:
