@@ -283,6 +283,24 @@ EOF
 fi
 log_success "Xray-core установлен."
 
+# 5.2 Тюнинг ядра для высоких скоростей Xray (BBR)
+log_info "Настройка sysctl для TCP BBR..."
+cat <<EOF > /etc/sysctl.d/99-xray.conf
+net.core.somaxconn = 65535
+net.ipv4.tcp_max_syn_backlog = 65535
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_syncookies = 1
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+EOF
+sysctl -p /etc/sysctl.d/99-xray.conf > /dev/null 2>&1 || true
+log_success "Тюнинг ядра BBR применен."
+
 # 6. Настройка маршрутизации
 log_info "Настройка маршрутизации..."
 echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-vpn.conf

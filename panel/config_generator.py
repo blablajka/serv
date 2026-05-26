@@ -289,14 +289,12 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
                     },
                     "xhttpSettings": {
                         "path": xhttp_path,
-                        "mode": "auto",
-                        "extra": {
-                            "headers": {},
-                            "xPaddingBytes": "100-1000",
-                            "noSSEHeader": False,
-                            "scMaxEachPostBytes": "500000-1000000",
-                            "scMaxBufferedPosts": 30,
-                            "scStreamUpServerSecs": "20-80"
+                        "mode": "stream-up",
+                        "xmux": {
+                            "maxConnections": 1,
+                            "maxConcurrency": 1,
+                            "cMaxReuseTimes": 32,
+                            "cMaxLifetimeMs": 600000
                         }
                     }
                 },

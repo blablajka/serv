@@ -699,7 +699,7 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 
                 import urllib.parse
                 name_encoded = urllib.parse.quote(client_id)
-                vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=auto#{name_encoded}"
+                vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=stream-up#{name_encoded}"
                 
                 need_save = False
                 if "domain" not in db["__global__"]:
