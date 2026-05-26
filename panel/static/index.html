@@ -733,15 +733,16 @@
             
             <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
-                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">Shadowsocks-2022</h3>
+                    <h3 style="font-size:15px; margin-bottom:8px; color: var(--accent);">VLESS Reality XHTTP</h3>
                     <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:14px;color:#fff; flex: 1; display:flex; flex-direction:column;">
                         <div style="margin-bottom: 12px;"><b>Домен/IP:</b> <span style="color:#4ade80;">{{ ssHost || 'blueorb.online' }}</span></div>
-                        <div style="margin-bottom: 12px;"><b>Порт:</b> <span style="color:#4ade80;">8388</span></div>
-                        <div style="margin-bottom: 12px;"><b>Метод:</b> <span style="color:#4ade80;">2022-blake3-aes-128-gcm</span></div>
-                        <div style="margin-bottom: 16px;"><b>Пароль:</b> <span style="color:#4ade80; word-break: break-all;">{{ ssPassword || 'Генерация...' }}</span></div>
+                        <div style="margin-bottom: 12px;"><b>Порт:</b> <span style="color:#4ade80;">443</span></div>
+                        <div style="margin-bottom: 12px;"><b>SNI:</b> <span style="color:#4ade80;">github.com</span></div>
+                        <div style="margin-bottom: 16px;"><b>Транспорт:</b> <span style="color:#4ade80;">XHTTP (Auto)</span></div>
                         
-                        <div style="margin-top: auto;">
-                            <button class="btn btn-success" style="width:100%; justify-content:center;" @click="copySSUri">📋 Скопировать URL Подписки (.json)</button>
+                        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+                            <button class="btn btn-success" style="width:100%; justify-content:center;" @click="copyVlessUri">📋 Скопировать vless:// ссылку</button>
+                            <button class="btn btn-primary" style="width:100%; justify-content:center;" @click="copySubUri">🔗 Скопировать URL Подписки</button>
                         </div>
                     </div>
                 </div>
@@ -782,9 +783,9 @@ createApp({
         const diagLogs      = ref('');
         const diagLoading   = ref(false);
         const cfgText       = ref('');
-        const ssPassword    = ref('');
         const ssHost        = ref('');
-        const ssUri         = ref('');
+        const vlessUrl      = ref('');
+        const subUrl        = ref('');
         const newClientName = ref('');
         const currentCfgId  = ref('');
 
@@ -1061,9 +1062,9 @@ createApp({
                 const r = await fetch('/api/clients/' + encodeURIComponent(id) + '/config');
                 const d = await r.json();
                 cfgText.value = d.config || '';
-                ssPassword.value = d.ss_password || '';
                 ssHost.value = d.host || 'blueorb.online';
-                ssUri.value = d.ss_uri || '';
+                vlessUrl.value = d.vless_url || '';
+                subUrl.value = d.ss_uri || '';
                 currentCfgId.value = id;
                 showCfgModal.value = true;
             } catch (e) { alert('❌ ' + e.message); }
@@ -1094,9 +1095,8 @@ createApp({
         const copyCfg = () => {
             copyTextFallback(cfgText.value, 'Скопировано AWG!');
         };
-        const copySSUri = () => {
-            copyTextFallback(ssUri.value, 'Ссылка на подписку скопирована! Вставьте её в Hiddify.');
-        };
+        const copyVlessUri = () => copyTextFallback(vlessUrl.value, '✅ VLESS ссылка скопирована!');
+        const copySubUri = () => copyTextFallback(subUrl.value, '✅ URL подписки скопирован!');
 
         const fetchDiagLogs = async () => {
             diagLoading.value = true;
@@ -1137,11 +1137,11 @@ createApp({
         return {
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
-            showAddClient, newClientName, showCfgModal, cfgText, ssPassword, ssHost, ssUri, currentCfgId,
+            showAddClient, newClientName, showCfgModal, cfgText, ssHost, vlessUrl, subUrl, currentCfgId,
             diagService, diagLogs, diagLoading, fetchDiagLogs, copyDiagLogs, downloadDiagLogs,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
-            createClient, delClient, viewCfg, copyCfg, copySSUri, editLimit, fetchLeaderboard
+            createClient, delClient, viewCfg, copyCfg, copyVlessUri, copySubUri, editLimit, fetchLeaderboard
         };
     }
 }).mount('#app');
