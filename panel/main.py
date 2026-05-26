@@ -439,12 +439,22 @@ async def get_logs(username: str = Depends(verify_credentials)):
         for line in reversed(sb_logs.strip().split('\n')):
             if line:
                 logs_data.append(f"[SING-BOX] {line}")
-    except FileNotFoundError:
-        logs_data.append("[SING-BOX] journalctl не найден")
     except Exception as e:
-        logs_data.append(f"[SING-BOX] Ошибка чтения логов: {e}")
+        pass
 
-    # 2. Логи оркестратора из памяти
+    # 2. Логи xray из journalctl
+    try:
+        xray_logs = subprocess.check_output(
+            ["journalctl", "-u", "xray", "-n", "30", "-o", "cat"],
+            stderr=subprocess.STDOUT, text=True
+        )
+        for line in reversed(xray_logs.strip().split('\n')):
+            if line:
+                logs_data.append(f"[XRAY] {line}")
+    except Exception as e:
+        pass
+
+    # 3. Логи оркестратора из памяти
     logs_data.extend(list(orchestrator_logs))
 
     return {"logs": logs_data}
