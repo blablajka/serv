@@ -818,7 +818,7 @@ async def get_diagnostics_logs(service: str = "sing-box", username: str = Depend
             
         elif service == "syslog":
             cmd = ["journalctl", "-n", "30", "--no-pager"]
-        elif service in ["sing-box", "awg-server", "smart-vpn-panel"]:
+        elif service in ["sing-box", "xray", "awg-server", "smart-vpn-panel"]:
             cmd = ["journalctl", "-u", service, "-n", "30", "--no-pager"]
         else:
             return JSONResponse(content={"error": "Неизвестный сервис"}, status_code=400)
