@@ -71,9 +71,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "default": selector_outbounds[-1] if len(selector_outbounds) > 1 else "direct"
     })
 
-    ss_users = []
-    ss_server_password = ""
-    stls_password = "shadowtls-secret"
     ws_path = "/secret-path"
     domain = "blueorb.online"
     clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
@@ -82,28 +79,10 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             with open(clients_db_path, "r", encoding="utf-8") as f:
                 db = json.load(f)
                 if "__global__" in db:
-                    ss_server_password = db["__global__"].get("ss_server_password", "")
-                    stls_password = db["__global__"].get("stls_password", stls_password)
                     ws_path = db["__global__"].get("ws_path", ws_path)
                     domain = db["__global__"].get("domain", domain)
-                for cid, data in db.items():
-                    if cid == "__global__": continue
-                    if "ss_password" in data:
-                        pw = data["ss_password"]
-                        if len(pw) > 40:
-                            ss_users.append({"name": cid, "password": pw})
     except Exception as e:
-        print("Error loading clients_db for ss_users:", e)
-        
-    import secrets
-    import base64
-    
-    if not ss_server_password:
-        ss_server_password = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-        
-    if not ss_users:
-        fallback_pw = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-        ss_users.append({"name": "fallback", "password": fallback_pw})
+        print("Error loading clients_db:", e)
 
     config = {
         "log": {"level": "info", "timestamp": True},
@@ -165,37 +144,6 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "strict_route": True,
                 "endpoint_independent_nat": True,
                 "stack": "system"
-            },
-            {
-                "type": "shadowtls",
-                "tag": "stls-in",
-                "listen": "::",
-                "listen_port": 443,
-                "version": 3,
-                "users": [
-                    {
-                        "name": "default",
-                        "password": stls_password
-                    }
-                ],
-                "handshake": {
-                    "server": "www.cloudflare.com",
-                    "server_port": 443
-                },
-                "detour": "ss-in"
-            },
-            {
-                "type": "shadowsocks",
-                "tag": "ss-in",
-                "listen": "127.0.0.1",
-                "listen_port": 8388,
-                "method": "2022-blake3-aes-256-gcm",
-                "password": ss_server_password,
-                "users": ss_users,
-                "multiplex": {
-                    "enabled": True,
-                    "padding": True
-                }
             }
         ],
         "endpoints": endpoints,

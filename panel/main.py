@@ -528,7 +528,7 @@ client_creation_lock = asyncio.Lock()
 @app.post("/api/clients")
 async def create_client(request: Request, username: str = Depends(verify_credentials)):
     global last_client_creation
-    import uuid, re, time, secrets, base64
+    import uuid, re, time
     data = await request.json()
     
     async with client_creation_lock:
@@ -560,16 +560,9 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     logger.info(f"Отправляем в awg-server: {payload}")
     res = await proxy_awg("POST", "/api/clients", payload)
     if res.status_code in [200, 201]:
-        ss_password = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
         db = load_clients_db()
-        if "__global__" not in db:
-            db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
-        elif "ss_server_password" not in db["__global__"]:
-            db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-            
         if data["id"] not in db: 
             db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-        db[data["id"]]["ss_password"] = ss_password
         save_clients_db(db)
         try:
             with open(SERVERS_FILE, "r", encoding="utf-8") as f:
@@ -604,31 +597,8 @@ async def ensure_ss_passwords():
         try:
             with open(db_path, "r", encoding="utf-8") as f:
                 db = json.load(f)
-            import secrets
-            import base64
             need_save = False
-            if "__global__" not in db:
-                db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
-                need_save = True
-            if "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) != 44:
-                db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-                need_save = True
-            if "ws_path" not in db["__global__"]:
-                db["__global__"]["ws_path"] = f"/ws-{secrets.token_hex(4)}"
-                need_save = True
-            if "domain" not in db["__global__"]:
-                db["__global__"]["domain"] = "blueorb.online"
-                need_save = True
-            if "stls_password" not in db["__global__"] or len(db["__global__"]["stls_password"]) != 32:
-                db["__global__"]["stls_password"] = secrets.token_hex(16)
-                need_save = True
-                
-            for cid, data in db.items():
-                if cid == "__global__": continue
-                if not data.get("ss_password") or len(data.get("ss_password", "")) != 44:
-                    data["ss_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-                    need_save = True
-                    
+            # Passwords removed
             if need_save:
                 with open(db_path, "w", encoding="utf-8") as f:
                     json.dump(db, f, indent=2)
@@ -641,71 +611,41 @@ async def get_subscription(client_id: str):
     if client_id not in db:
         raise HTTPException(status_code=404, detail="Client not found")
         
-    ss_password = db[client_id].get("ss_password", "")
-    ss_server_password = db.get("__global__", {}).get("ss_server_password", "")
-    ws_path = db.get("__global__", {}).get("ws_path", "/stream")
-    host = db.get("__global__", {}).get("domain", "blueorb.online")
-    stls_password = db.get("__global__", {}).get("stls_password", "shadowtls-secret")
-    
     config = {
       "log": {
-        "level": "warn",
+        "level": "info",
         "timestamp": True
       },
       "outbounds": [
         {
-          "type": "shadowsocks",
-          "tag": "proxy",
-          "method": "2022-blake3-aes-256-gcm",
-          "password": f"{ss_server_password}:{ss_password}",
-          "detour": "stls-out",
-          "multiplex": {
-            "enabled": True,
-            "padding": True
-          }
-        },
-        {
-          "type": "shadowtls",
-          "tag": "stls-out",
-          "server": host,
-          "server_port": 443,
-          "version": 3,
-          "password": stls_password,
-          "tls": {
-            "enabled": True,
-            "server_name": "www.cloudflare.com",
-            "utls": {
-              "enabled": True,
-              "fingerprint": "chrome"
-            }
-          }
-        },
-        {
           "type": "direct",
           "tag": "direct"
+        },
+        {
+          "type": "dns",
+          "tag": "dns-out"
         }
       ],
       "inbounds": [
         {
-          "type": "mixed",
-          "tag": "mixed-in",
-          "listen": "127.0.0.1",
-          "listen_port": 2080
+          "type": "tun",
+          "tag": "tun-in",
+          "interface_name": "tun0",
+          "inet4_address": "172.19.0.1/30",
+          "auto_route": True,
+          "strict_route": True,
+          "stack": "system",
+          "sniff": True
         }
       ],
       "route": {
-        "auto_detect_interface": True,
         "rules": [
           {
-            "geoip": "ru",
-            "outbound": "direct"
-          },
-          {
-            "geosite": "ru",
-            "outbound": "direct"
+            "protocol": "dns",
+            "outbound": "dns-out"
           }
         ],
-        "final": "proxy"
+        "auto_detect_interface": True
       }
     }
     
@@ -731,20 +671,11 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 import urllib.parse
                 
                 need_save = False
-                if "__global__" not in db:
-                    db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
-                    need_save = True
-                if "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) != 44:
-                    db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-                    need_save = True
                 if "ws_path" not in db["__global__"]:
                     db["__global__"]["ws_path"] = f"/ws-{secrets.token_hex(4)}"
                     need_save = True
                 if "domain" not in db["__global__"]:
                     db["__global__"]["domain"] = "blueorb.online"
-                    need_save = True
-                if "stls_password" not in db["__global__"] or len(db["__global__"]["stls_password"]) != 32:
-                    db["__global__"]["stls_password"] = secrets.token_hex(16)
                     need_save = True
                     
                 if not db[client_id].get("ss_password") or len(db[client_id].get("ss_password", "")) != 44:
