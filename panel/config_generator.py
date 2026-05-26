@@ -265,13 +265,6 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
         },
         "inbounds": [
             {
-                "tag": "api-in",
-                "listen": "127.0.0.1",
-                "port": 10085,
-                "protocol": "dokodemo-door",
-                "settings": {"address": "127.0.0.1"}
-            },
-            {
                 "tag": "vless-reality-xhttp",
                 "listen": "0.0.0.0",
                 "port": 443,
@@ -355,11 +348,6 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
         "routing": {
             "domainStrategy": "IPIfNonMatch",
             "rules": [
-                {
-                    "type": "field",
-                    "inboundTag": ["api-in"],
-                    "outboundTag": "api"
-                },
                 {
                     "type": "field",
                     "inboundTag": ["vless-reality-xhttp"],
