@@ -581,7 +581,7 @@ async def create_client(request: Request, username: str = Depends(verify_credent
                 "level": 0,
                 "account": {
                     "id": v_uuid,
-                    "flow": "xtls-rprx-vision"
+                    "flow": ""
                 }
             }
             try:
@@ -654,7 +654,7 @@ async def get_subscription(client_id: str):
     sni = db["__global__"].get("reality_server_names", ["github.com"])[0]
     
     name_encoded = urllib.parse.quote(client_id)
-    vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=auto#{name_encoded}"
+    vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=stream-up#{name_encoded}"
     
     base64_encoded = base64.b64encode(vless_url.encode("utf-8")).decode("utf-8")
     
@@ -699,7 +699,7 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 
                 import urllib.parse
                 name_encoded = urllib.parse.quote(client_id)
-                vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=stream-up#{name_encoded}"
+                vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=stream-up#{name_encoded}"
                 
                 need_save = False
                 if "domain" not in db["__global__"]:

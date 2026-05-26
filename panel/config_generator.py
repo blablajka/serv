@@ -57,7 +57,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "mtu": 1400,
             "address": [server["local_address"]],
             "private_key": server["private_key"],
-            "domain_resolver": "dns-local",
+            "domain_resolver": "dns-bootstrap",
             "peers": [peer]
         }
         if amnezia:
@@ -111,6 +111,12 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                         "server_name": "dns.google"
                     },
                     "detour": "Select-Outbound"
+                },
+                {
+                    "tag": "dns-bootstrap",
+                    "type": "udp",
+                    "server": "1.1.1.1",
+                    "detour": "direct"
                 },
                 {"tag": "dns-local", "type": "local"}
             ],
@@ -215,7 +221,7 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
             clients.append({
                 "id": data["vless_uuid"],
                 "email": cid,
-                "flow": "xtls-rprx-vision",
+                "flow": "",
                 "level": 0
             })
 
