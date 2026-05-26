@@ -1148,10 +1148,10 @@ WantedBy=multi-user.target
         if "reality_private_key" not in global_cfg:
             res = subprocess.run(["/usr/local/bin/xray", "x25519"], capture_output=True, text=True)
             for line in res.stdout.splitlines():
-                if "Private key:" in line:
-                    global_cfg["reality_private_key"] = line.split("Private key:")[1].strip()
-                elif "Public key:" in line:
-                    global_cfg["reality_public_key"] = line.split("Public key:")[1].strip()
+                if "PrivateKey:" in line or "Private key:" in line:
+                    global_cfg["reality_private_key"] = line.split(":", 1)[1].strip()
+                elif "PublicKey" in line or "Public key:" in line:
+                    global_cfg["reality_public_key"] = line.split(":", 1)[1].strip()
             need_save = True
             
         if "reality_short_ids" not in global_cfg:
