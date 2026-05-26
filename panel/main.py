@@ -457,15 +457,6 @@ async def get_logs(username: str = Depends(verify_credentials)):
     # 3. Логи оркестратора из памяти
     logs_data.extend(list(orchestrator_logs))
 
-    # 4. Конфиг Xray
-    try:
-        with open("/usr/local/etc/xray/config.json", "r", encoding="utf-8") as f:
-            logs_data.append("[XRAY CONFIG] --- Начало ---")
-            for line in f.read().splitlines():
-                logs_data.append(f"[XRAY CONFIG] {line}")
-    except Exception:
-        pass
-
     return {"logs": logs_data}
 
 @app.get("/api/status")
