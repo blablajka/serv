@@ -144,13 +144,19 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "strict_route": True,
                 "endpoint_independent_nat": True,
                 "stack": "system"
+            },
+            {
+                "type": "socks",
+                "tag": "socks-in",
+                "listen": "127.0.0.1",
+                "listen_port": 1080
             }
         ],
         "endpoints": endpoints,
         "outbounds": outbounds,
         "route": {
             "rules": [
-                {"inbound": ["tun-in"], "action": "sniff"},
+                {"inbound": ["tun-in", "socks-in"], "action": "sniff"},
                 {"port": 53, "action": "hijack-dns"},
                 {
                     "network": "udp",
@@ -182,6 +188,208 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "secret": "",
                 "default_mode": "rule"
             }
+        }
+    }
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
+    """
+    Генерирует конфиг Xray-core (VLESS+Reality+XHTTP+Vision).
+    Клиенты подтягиваются из db.
+    """
+    global_cfg = db.get("__global__", {})
+    private_key = global_cfg.get("reality_private_key", "")
+    short_ids = global_cfg.get("reality_short_ids", ["", "1a2b3c4d"])
+    xhttp_path = global_cfg.get("xhttp_path", "/api/v1/stream/")
+    server_names = global_cfg.get("reality_server_names", ["github.com", "objects.githubusercontent.com"])
+    target = global_cfg.get("reality_target", "github.com:443")
+
+    clients = []
+    for cid, data in db.items():
+        if cid == "__global__": continue
+        if data.get("vless_uuid"):
+            clients.append({
+                "id": data["vless_uuid"],
+                "email": cid,
+                "flow": "xtls-rprx-vision",
+                "level": 0
+            })
+
+    config = {
+        "log": {
+            "loglevel": "warning",
+            "dnsLog": False,
+            "access": "none"
+        },
+        "api": {
+            "tag": "api",
+            "listen": "127.0.0.1:10085",
+            "services": ["HandlerService", "LoggerService", "StatsService"]
+        },
+        "stats": {},
+        "policy": {
+            "levels": {
+                "0": {
+                    "handshake": 4,
+                    "connIdle": 300,
+                    "uplinkOnly": 2,
+                    "downlinkOnly": 5,
+                    "statsUserUplink": True,
+                    "statsUserDownlink": True,
+                    "bufferSize": 0
+                }
+            },
+            "system": {
+                "statsInboundUplink": True,
+                "statsInboundDownlink": True,
+                "statsOutboundUplink": True,
+                "statsOutboundDownlink": True
+            }
+        },
+        "dns": {
+            "servers": [
+                "https+local://1.1.1.1/dns-query",
+                "https+local://8.8.8.8/dns-query",
+                {
+                    "address": "127.0.0.1",
+                    "port": 53,
+                    "domains": ["geosite:private"]
+                }
+            ],
+            "queryStrategy": "UseIP",
+            "tag": "dns_inbound"
+        },
+        "inbounds": [
+            {
+                "tag": "api-in",
+                "listen": "127.0.0.1",
+                "port": 10085,
+                "protocol": "dokodemo-door",
+                "settings": {"address": "127.0.0.1"}
+            },
+            {
+                "tag": "vless-reality-xhttp",
+                "listen": "0.0.0.0",
+                "port": 443,
+                "protocol": "vless",
+                "settings": {
+                    "clients": clients,
+                    "decryption": "none"
+                },
+                "streamSettings": {
+                    "network": "xhttp",
+                    "security": "reality",
+                    "realitySettings": {
+                        "show": False,
+                        "target": target,
+                        "xver": 0,
+                        "serverNames": server_names,
+                        "privateKey": private_key,
+                        "minClientVer": "",
+                        "maxClientVer": "",
+                        "maxTimeDiff": 0,
+                        "shortIds": short_ids
+                    },
+                    "xhttpSettings": {
+                        "path": xhttp_path,
+                        "mode": "auto",
+                        "extra": {
+                            "headers": {},
+                            "xPaddingBytes": "100-1000",
+                            "noSSEHeader": False,
+                            "scMaxEachPostBytes": "500000-1000000",
+                            "scMaxBufferedPosts": 30,
+                            "scStreamUpServerSecs": "20-80"
+                        }
+                    }
+                },
+                "sniffing": {
+                    "enabled": True,
+                    "destOverride": ["http", "tls", "quic"],
+                    "routeOnly": True
+                }
+            }
+        ],
+        "outbounds": [
+            {
+                "tag": "to-singbox",
+                "protocol": "socks",
+                "settings": {
+                    "servers": [
+                        {
+                            "address": "127.0.0.1",
+                            "port": 1080
+                        }
+                    ]
+                },
+                "streamSettings": {
+                    "sockopt": {
+                        "tcpFastOpen": True,
+                        "tcpKeepAliveInterval": 30
+                    }
+                }
+            },
+            {
+                "tag": "direct",
+                "protocol": "freedom",
+                "settings": {
+                    "domainStrategy": "UseIPv4"
+                }
+            },
+            {
+                "tag": "block",
+                "protocol": "blackhole",
+                "settings": {
+                    "response": {"type": "http"}
+                }
+            },
+            {
+                "tag": "dns-out",
+                "protocol": "dns"
+            }
+        ],
+        "routing": {
+            "domainStrategy": "IPIfNonMatch",
+            "rules": [
+                {
+                    "type": "field",
+                    "inboundTag": ["api-in"],
+                    "outboundTag": "api"
+                },
+                {
+                    "type": "field",
+                    "inboundTag": ["vless-reality-xhttp"],
+                    "port": 53,
+                    "outboundTag": "dns-out"
+                },
+                {
+                    "type": "field",
+                    "protocol": ["bittorrent"],
+                    "outboundTag": "block"
+                },
+                {
+                    "type": "field",
+                    "ip": ["geoip:private"],
+                    "outboundTag": "block"
+                },
+                {
+                    "type": "field",
+                    "domain": [
+                        "geosite:category-ads-all",
+                        "geosite:category-porn"
+                    ],
+                    "outboundTag": "block"
+                },
+                {
+                    "type": "field",
+                    "outboundTag": "to-singbox",
+                    "network": "tcp,udp"
+                }
+            ]
         }
     }
 

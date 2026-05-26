@@ -57,7 +57,7 @@ class SSHPool:
 ssh_pool = SSHPool()
 
 
-from config_generator import generate_singbox_config
+from config_generator import generate_singbox_config, generate_xray_config
 
 # Настраиваем кастомный логгер — сохраняем логи оркестратора в память для веба
 orchestrator_logs = deque(maxlen=100)
@@ -562,7 +562,23 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     if res.status_code in [200, 201]:
         db = load_clients_db()
         if data["id"] not in db: 
-            db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
+            import uuid, json, subprocess
+            v_uuid = str(uuid.uuid4())
+            db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False, "vless_uuid": v_uuid}
+            
+            xray_user = {
+                "email": data["id"],
+                "level": 0,
+                "account": {
+                    "id": v_uuid,
+                    "flow": "xtls-rprx-vision"
+                }
+            }
+            try:
+                subprocess.run(["/usr/local/bin/xray", "api", "adu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-u", json.dumps(xray_user)], check=False)
+            except Exception as e:
+                logger.error(f"Xray adu error: {e}")
+                
         save_clients_db(db)
         try:
             with open(SERVERS_FILE, "r", encoding="utf-8") as f:
@@ -580,6 +596,11 @@ async def delete_client(client_id: str, username: str = Depends(verify_credentia
     if res.status_code in [200, 204]:
         db = load_clients_db()
         if client_id in db:
+            import subprocess
+            try:
+                subprocess.run(["/usr/local/bin/xray", "api", "rmu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-e", client_id], check=False)
+            except Exception as e:
+                logger.error(f"Xray rmu error: {e}")
             del db[client_id]
             save_clients_db(db)
             try:
@@ -611,46 +632,33 @@ async def get_subscription(client_id: str):
     if client_id not in db:
         raise HTTPException(status_code=404, detail="Client not found")
         
-    config = {
-      "log": {
-        "level": "info",
-        "timestamp": True
-      },
-      "outbounds": [
-        {
-          "type": "direct",
-          "tag": "direct"
-        },
-        {
-          "type": "dns",
-          "tag": "dns-out"
-        }
-      ],
-      "inbounds": [
-        {
-          "type": "tun",
-          "tag": "tun-in",
-          "interface_name": "tun0",
-          "inet4_address": "172.19.0.1/30",
-          "auto_route": True,
-          "strict_route": True,
-          "stack": "system",
-          "sniff": True
-        }
-      ],
-      "route": {
-        "rules": [
-          {
-            "protocol": "dns",
-            "outbound": "dns-out"
-          }
-        ],
-        "auto_detect_interface": True
-      }
+    from fastapi import Response
+    import base64
+    import urllib.parse
+    
+    v_uuid = db[client_id].get("vless_uuid", "")
+    host = db["__global__"].get("domain", "blueorb.online")
+    pubkey = db["__global__"].get("reality_public_key", "")
+    short_id = db["__global__"].get("reality_short_ids", [""])[-1]
+    path = db["__global__"].get("xhttp_path", "")
+    sni = db["__global__"].get("reality_server_names", ["github.com"])[0]
+    
+    name_encoded = urllib.parse.quote(client_id)
+    vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=auto#{name_encoded}"
+    
+    base64_encoded = base64.b64encode(vless_url.encode("utf-8")).decode("utf-8")
+    
+    uploaded = int(db[client_id].get("all_time_gb", 0) * 1024 * 1024 * 1024 / 2) # approx
+    downloaded = int(db[client_id].get("all_time_gb", 0) * 1024 * 1024 * 1024 / 2)
+    total = int(db[client_id].get("limit_gb", 1024) * 1024 * 1024 * 1024)
+    expire = 0 # unbounded
+    
+    headers = {
+        "content-type": "text/plain",
+        "subscription-userinfo": f"upload={uploaded}; download={downloaded}; total={total}; expire={expire}"
     }
     
-    from fastapi.responses import JSONResponse
-    return JSONResponse(content=config)
+    return Response(content=base64_encoded, media_type="text/plain", headers=headers)
 
 @app.get("/api/clients/{client_id}/config")
 async def get_client_config(request: Request, client_id: str, username: str = Depends(verify_credentials)):
@@ -665,41 +673,35 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 awg_config = r.text
                 db = load_clients_db()
                 if client_id not in db:
-                    db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-                import secrets
-                import base64
+                    import uuid
+                    db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False, "vless_uuid": str(uuid.uuid4())}
+                    
+                if "vless_uuid" not in db[client_id]:
+                    import uuid
+                    db[client_id]["vless_uuid"] = str(uuid.uuid4())
+                
+                v_uuid = db[client_id]["vless_uuid"]
+                host = db["__global__"].get("domain", "blueorb.online")
+                pubkey = db["__global__"].get("reality_public_key", "")
+                short_id = db["__global__"].get("reality_short_ids", [""])[-1]
+                path = db["__global__"].get("xhttp_path", "")
+                sni = db["__global__"].get("reality_server_names", ["github.com"])[0]
+                
                 import urllib.parse
+                name_encoded = urllib.parse.quote(client_id)
+                vless_url = f"vless://{v_uuid}@{host}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}&type=xhttp&path={urllib.parse.quote(path, safe='')}&mode=auto#{name_encoded}"
                 
                 need_save = False
-                if "ws_path" not in db["__global__"]:
-                    db["__global__"]["ws_path"] = f"/ws-{secrets.token_hex(4)}"
-                    need_save = True
                 if "domain" not in db["__global__"]:
                     db["__global__"]["domain"] = "blueorb.online"
                     need_save = True
                     
-                if not db[client_id].get("ss_password") or len(db[client_id].get("ss_password", "")) != 44:
-                    db[client_id]["ss_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
-                    need_save = True
-                    
                 if need_save:
                     save_clients_db(db)
-                    try:
-                        with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-                            servers = json.load(f)
-                    except:
-                        servers = []
-                    generate_singbox_config(servers, CONFIG_FILE)
-                    os.system("systemctl restart sing-box")
                     
-                ss_password = db[client_id]["ss_password"]
-                ss_server_password = db["__global__"]["ss_server_password"]
-                host = db["__global__"].get("domain", "blueorb.online")
-                
-                # Возвращаем ссылку на подписку вместо ss_uri
                 sub_url = f"http://{host}:5000/sub/{client_id}"
                 
-                return {"config": awg_config, "ss_password": ss_password, "ss_uri": sub_url, "host": host}
+                return {"config": awg_config, "vless_url": vless_url, "ss_uri": sub_url, "host": host}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
@@ -1105,23 +1107,66 @@ async def client_traffic_loop():
 async def startup_event():
     logger.info("Запуск Orchestrator Loop и Client Traffic Loop...")
     
-    # Миграция SS-2022 на 32-байтные ключи при запуске
+    # Установка и генерация ключей Xray-core
     try:
         db = load_clients_db()
         need_save = False
         import secrets
-        import base64
         if "__global__" not in db:
-            db["__global__"] = {"ss_server_password": base64.b64encode(secrets.token_bytes(32)).decode('utf-8')}
-            need_save = True
-        elif "ss_server_password" not in db["__global__"] or len(db["__global__"]["ss_server_password"]) < 40:
-            db["__global__"]["ss_server_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+            db["__global__"] = {}
             need_save = True
             
+        global_cfg = db["__global__"]
+        
+        # Проверяем Xray-core
+        import os
+        import subprocess
+        if not os.path.exists("/usr/local/bin/xray"):
+            logger.info("Установка Xray-core...")
+            os.system("bash -c \"$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)\" @ install")
+            unit = """[Unit]
+Description=Xray Service
+After=network.target nss-lookup.target
+
+[Service]
+ExecStart=/usr/local/bin/xray run -confdir /usr/local/etc/xray
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+LimitNOFILE=1048576
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+TimeoutStopSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+"""
+            with open("/etc/systemd/system/xray.service", "w") as f:
+                f.write(unit)
+            os.system("systemctl daemon-reload")
+            os.system("systemctl enable xray")
+            
+        if "reality_private_key" not in global_cfg:
+            res = subprocess.run(["/usr/local/bin/xray", "x25519"], capture_output=True, text=True)
+            for line in res.stdout.split('\\n'):
+                if "Private key:" in line:
+                    global_cfg["reality_private_key"] = line.split("Private key:")[1].strip()
+                elif "Public key:" in line:
+                    global_cfg["reality_public_key"] = line.split("Public key:")[1].strip()
+            need_save = True
+            
+        if "reality_short_ids" not in global_cfg:
+            global_cfg["reality_short_ids"] = ["", secrets.token_hex(4)]
+            need_save = True
+            
+        if "xhttp_path" not in global_cfg:
+            global_cfg["xhttp_path"] = f"/{secrets.token_hex(16)}/"
+            need_save = True
+
         for cid, data in db.items():
             if cid == "__global__": continue
-            if not data.get("ss_password") or len(data.get("ss_password", "")) < 40:
-                data["ss_password"] = base64.b64encode(secrets.token_bytes(32)).decode('utf-8')
+            if not data.get("vless_uuid"):
+                import uuid
+                data["vless_uuid"] = str(uuid.uuid4())
                 need_save = True
                 
         if need_save:
@@ -1133,8 +1178,9 @@ async def startup_event():
         except:
             servers = []
         generate_singbox_config(servers, CONFIG_FILE)
+        generate_xray_config(db)
         
-        # Открываем порты для sing-box (443 для Shadowsocks, 80 для ACME Let's Encrypt)
+        # Открываем порты (443 TCP для Xray, 443 UDP для AWG)
         os.system("iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 443 -j ACCEPT")
         os.system("iptables -C INPUT -p udp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p udp --dport 443 -j ACCEPT")
         os.system("iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 80 -j ACCEPT")
@@ -1143,6 +1189,7 @@ async def startup_event():
         os.system("ufw allow 80/tcp >/dev/null 2>&1 || true")
         
         os.system("systemctl restart sing-box")
+        os.system("systemctl restart xray")
     except Exception as e:
         logger.error(f"Ошибка при миграции и рестарте sing-box: {e}")
     

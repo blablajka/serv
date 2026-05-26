@@ -257,6 +257,32 @@ WantedBy=multi-user.target
 EOF
 log_success "sing-box собран и настроен."
 
+# 5.1 Установка Xray-core
+log_info "Установка Xray-core..."
+if [ ! -f "/usr/local/bin/xray" ]; then
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+    cat <<EOF > /etc/systemd/system/xray.service
+[Unit]
+Description=Xray Service
+After=network.target nss-lookup.target
+
+[Service]
+ExecStart=/usr/local/bin/xray run -confdir /usr/local/etc/xray
+ExecReload=/bin/kill -HUP \$MAINPID
+KillMode=mixed
+LimitNOFILE=1048576
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+TimeoutStopSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable xray
+fi
+log_success "Xray-core установлен."
+
 # 6. Настройка маршрутизации
 log_info "Настройка маршрутизации..."
 echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-vpn.conf
@@ -356,6 +382,7 @@ log_info "Запуск всех сервисов..."
 systemctl daemon-reload
 systemctl enable --now awg-server || handle_error $LINENO
 systemctl enable --now sing-box || handle_error $LINENO
+systemctl enable --now xray || handle_error $LINENO
 systemctl enable --now vpn-routing || handle_error $LINENO
 systemctl enable --now smart-vpn-panel || handle_error $LINENO
 log_success "Сервисы запущены!"
