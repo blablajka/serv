@@ -843,6 +843,14 @@ async def get_diagnostics_logs(service: str = "sing-box", username: str = Depend
         if not log_text.strip() and stderr:
             log_text += "\n" + stderr.decode('utf-8', errors='replace')
             
+        if service == "xray":
+            try:
+                with open("/usr/local/etc/xray/config.json", "r", encoding="utf-8") as f:
+                    log_text += "\n\n[XRAY CONFIG] =================================\n\n"
+                    log_text += f.read()
+            except Exception:
+                pass
+                
         return {"service": service, "logs": log_text}
     except Exception as e:
         from fastapi.responses import JSONResponse
