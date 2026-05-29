@@ -840,11 +840,20 @@ async def get_diagnostics_logs(service: str = "sing-box", username: str = Depend
             name_encoded = urllib.parse.quote("diagnostic-client")
             vless_url = f"vless://{client_uuid}@{host}:443?type=xhttp&path={path}&mode=stream-up&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}#{name_encoded}"
             
+            import os
+            server_config = {}
+            if os.path.exists("/usr/local/etc/xray/config.json"):
+                with open("/usr/local/etc/xray/config.json", "r", encoding="utf-8") as f:
+                    try:
+                        server_config = json.load(f)
+                    except:
+                        server_config = {"error": "Failed to parse server config"}
+            
             output = {
-                "vless_url": vless_url,
-                "json_config": ideal_config
+                "generated_vless_url": vless_url,
+                "server_xray_config_we_generated": server_config,
+                "ideal_client_json_reference": ideal_config
             }
-            import json
             return JSONResponse({"logs": json.dumps(output, indent=2)})
             
         if service == "llm":
