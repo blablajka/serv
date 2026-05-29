@@ -772,6 +772,73 @@ async def set_client_limit(client_id: str, payload: dict, username: str = Depend
 async def get_diagnostics_logs(service: str = "sing-box", username: str = Depends(verify_credentials)):
     try:
         from fastapi.responses import JSONResponse
+        if service == "vless-config":
+            db = load_clients_db()
+            host = db.get("__global__", {}).get("domain", "SERVER_IP")
+            pubkey = db.get("__global__", {}).get("reality_public_key", "PUBLIC_KEY")
+            short_id = db.get("__global__", {}).get("reality_short_ids", [""])[-1]
+            path = db.get("__global__", {}).get("xhttp_path", "/api/v1/stream/")
+            sni = db.get("__global__", {}).get("reality_server_names", ["github.com"])[0]
+            
+            client_uuid = "CLIENT_UUID"
+            for cid, data in db.items():
+                if cid != "__global__" and data.get("vless_uuid"):
+                    client_uuid = data["vless_uuid"]
+                    break
+                    
+            ideal_config = {
+                "log": {"loglevel": "warning"},
+                "inbounds": [
+                    {
+                        "port": 10808,
+                        "listen": "127.0.0.1",
+                        "protocol": "socks",
+                        "sniffing": {
+                            "enabled": True,
+                            "destOverride": ["http", "tls"]
+                        },
+                        "settings": {"auth": "noauth", "udp": True}
+                    }
+                ],
+                "outbounds": [
+                    {
+                        "protocol": "vless",
+                        "settings": {
+                            "vnext": [
+                                {
+                                    "address": host,
+                                    "port": 443,
+                                    "users": [
+                                        {
+                                            "id": client_uuid,
+                                            "encryption": "none",
+                                            "flow": ""
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "streamSettings": {
+                            "network": "xhttp",
+                            "security": "reality",
+                            "xhttpSettings": {
+                                "mode": "stream-up",
+                                "path": path
+                            },
+                            "realitySettings": {
+                                "fingerprint": "chrome",
+                                "serverName": sni,
+                                "publicKey": pubkey,
+                                "shortId": short_id,
+                                "spiderX": ""
+                            }
+                        }
+                    }
+                ]
+            }
+            import json
+            return JSONResponse({"logs": json.dumps(ideal_config, indent=2)})
+            
         if service == "llm":
             sources = ["sing-box", "xray", "awg-server", "smart-vpn-panel", "syslog"]
             log_text = ""
