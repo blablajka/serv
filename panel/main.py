@@ -836,8 +836,16 @@ async def get_diagnostics_logs(service: str = "sing-box", username: str = Depend
                     }
                 ]
             }
+            import urllib.parse
+            name_encoded = urllib.parse.quote("diagnostic-client")
+            vless_url = f"vless://{client_uuid}@{host}:443?type=xhttp&path={path}&mode=stream-up&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}#{name_encoded}"
+            
+            output = {
+                "vless_url": vless_url,
+                "json_config": ideal_config
+            }
             import json
-            return JSONResponse({"logs": json.dumps(ideal_config, indent=2)})
+            return JSONResponse({"logs": json.dumps(output, indent=2)})
             
         if service == "llm":
             sources = ["sing-box", "xray", "awg-server", "smart-vpn-panel", "syslog"]
