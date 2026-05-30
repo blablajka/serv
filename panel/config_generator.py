@@ -217,7 +217,7 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
             clients.append({
                 "id": data["vless_uuid"],
                 "email": cid,
-                "flow": "xtls-rprx-vision",
+                "flow": "",
                 "level": 0
             })
 
