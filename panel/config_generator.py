@@ -217,7 +217,6 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
             clients.append({
                 "id": data["vless_uuid"],
                 "email": cid,
-                "flow": "",
                 "level": 0
             })
 
@@ -241,8 +240,7 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
                     "uplinkOnly": 2,
                     "downlinkOnly": 5,
                     "statsUserUplink": True,
-                    "statsUserDownlink": True,
-                    "bufferSize": 0
+                    "statsUserDownlink": True
                 }
             },
             "system": {
@@ -262,7 +260,7 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
                     "domains": ["geosite:private"]
                 }
             ],
-            "queryStrategy": "UseIP",
+            "queryStrategy": "UseIPv4",
             "tag": "dns_inbound"
         },
         "inbounds": [
@@ -290,8 +288,7 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
                         "shortIds": short_ids
                     },
                     "xhttpSettings": {
-                        "path": xhttp_path,
-                        "mode": "stream-up"
+                        "path": xhttp_path
                     }
                 },
                 "sniffing": {
