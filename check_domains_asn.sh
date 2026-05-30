@@ -2,9 +2,9 @@
 # Скрипт для фильтрации domains.txt по строгому совпадению ASN
 # Запускать после отработки reality_sni_finder.sh
 
-if ! command -v jq &> /dev/null || ! command -v curl &> /dev/null || ! command -v dig &> /dev/null; then
-    echo "Устанавливаем зависимости (curl, jq, dnsutils)..."
-    apt update && apt install -y jq curl dnsutils
+if ! command -v jq &> /dev/null || ! command -v curl &> /dev/null || ! command -v dig &> /dev/null || ! command -v whois &> /dev/null; then
+    echo "Устанавливаем зависимости (curl, jq, dnsutils, whois)..."
+    apt update && apt install -y jq curl dnsutils whois
 fi
 
 DOMAINS_FILE="./domains.txt"
@@ -16,7 +16,7 @@ fi
 
 echo "🌐 Определяем ASN вашего сервера..."
 MY_IP=$(curl -s api.ipify.org)
-MY_ASN=$(curl -s "https://api.bgpview.io/ip/$MY_IP" | jq -r '.data.prefixes[0].asn.asn')
+MY_ASN=$(whois -h whois.cymru.com " -v $MY_IP" | tail -1 | awk '{print $1}')
 
 if [ -z "$MY_ASN" ] || [ "$MY_ASN" == "null" ]; then
     echo "❌ Не удалось определить ASN сервера."
