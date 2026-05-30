@@ -392,6 +392,9 @@ fi
 
 run_engine
 
+# Отключаем strict mode (set -e), чтобы скрипт не падал при ошибках grep/dig/whois
+set +e
+
 echo "🌐 Определяем ASN целевого сервера..."
 if [ -n "$TARGET_IP" ]; then
     MY_IP="$TARGET_IP"
