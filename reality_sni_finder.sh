@@ -383,10 +383,22 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Run engine automatically without menu
+TARGET_IP=${1:-}
+
+if [ -n "$TARGET_IP" ]; then
+    export RSF_REF_IP="$TARGET_IP"
+    echo "🎯 Используем целевой IP: $TARGET_IP"
+fi
+
 run_engine
 
-echo "🌐 Определяем ASN вашего сервера..."
-MY_IP=$(curl -s api.ipify.org)
+echo "🌐 Определяем ASN целевого сервера..."
+if [ -n "$TARGET_IP" ]; then
+    MY_IP="$TARGET_IP"
+else
+    MY_IP=$(curl -s api.ipify.org)
+fi
+
 MY_ASN=$(whois -h whois.cymru.com " -v $MY_IP" | tail -1 | awk '{print $1}')
 
 if [ -z "$MY_ASN" ]; then
