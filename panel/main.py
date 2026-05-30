@@ -326,7 +326,24 @@ def _do_install_server(data: AutoInstallModel):
         client_public_key = out.strip()
         logger.info(f"Клиентский pubkey: {client_public_key[:20]}...")
 
-        # Шаг 4: Параметры обфускации и порт
+        # Шаг 4: Вычисляем подсеть и параметры обфускации
+        current_servers = load_servers()
+        max_octet = 65
+        for s in current_servers:
+            loc = s.get("local_address", "")
+            if loc.startswith("10.66."):
+                try:
+                    octet = int(loc.split(".")[2])
+                    if octet > max_octet:
+                        max_octet = octet
+                except: pass
+        next_octet = max_octet + 1
+        if next_octet > 254:
+            raise Exception("Слишком много серверов, закончились подсети 10.66.X.0")
+        
+        server_ip_awg = f"10.66.{next_octet}.1/24"
+        client_ip_awg = f"10.66.{next_octet}.2/32"
+
         obfs = {
             "jc": random.randint(3, 120),
             "jmin": random.randint(10, 50),
@@ -334,7 +351,10 @@ def _do_install_server(data: AutoInstallModel):
             "s1": random.randint(15, 150),
             "s2": random.randint(15, 150),
             "s3": 0, "s4": 0,
-            "h1": 1, "h2": 2, "h3": 3, "h4": 4
+            "h1": random.randint(5, 2147483647),
+            "h2": random.randint(5, 2147483647),
+            "h3": random.randint(5, 2147483647),
+            "h4": random.randint(5, 2147483647)
         }
         wg_port = random.randint(20000, 60000)
 
@@ -347,7 +367,7 @@ def _do_install_server(data: AutoInstallModel):
         wg_conf = (
             "[Interface]\n"
             f"PrivateKey = {server_private_key}\n"
-            f"Address = 10.66.66.1/24\n"
+            f"Address = {server_ip_awg}\n"
             f"ListenPort = {wg_port}\n"
             f"Jc = {obfs['jc']}\n"
             f"Jmin = {obfs['jmin']}\n"
@@ -364,7 +384,7 @@ def _do_install_server(data: AutoInstallModel):
             "\n"
             "[Peer]\n"
             f"PublicKey = {client_public_key}\n"
-            f"AllowedIPs = 10.66.66.2/32\n"
+            f"AllowedIPs = {client_ip_awg}\n"
         )
 
         # Записываем конфиг через /tmp (SFTP не требует root)
@@ -405,7 +425,7 @@ def _do_install_server(data: AutoInstallModel):
             "name": data.name,
             "ip": data.ip,
             "port": wg_port,
-            "local_address": "10.66.66.2/32",
+            "local_address": client_ip_awg,
             "private_key": client_private_key,
             "peer_public_key": server_public_key,
             "limit_gb": data.limit_gb,
@@ -1125,30 +1145,51 @@ async def client_traffic_loop():
     except:
         pass
 
-    last_tx_rx = {}
+    last_awg_bytes = {}
+    last_xray_bytes = {}
+    blocked_xray_users = set()
 
     while True:
         try:
+            # 1. AWG Stats
             try:
                 proc = await asyncio.create_subprocess_exec("awg", "show", "awg0", "dump", stdout=asyncio.subprocess.PIPE)
                 stdout, _ = await proc.communicate()
                 out = stdout.decode("utf-8")
             except:
-                await asyncio.sleep(10)
-                continue
+                out = ""
 
-            lines = out.strip().split("\n")
-            current_tx_rx = {}
-            for line in lines[1:]:
-                p = line.split("\t")
-                if len(p) >= 8:
-                    allowed_ips = p[3]
-                    rx = int(p[5])
-                    tx = int(p[6])
-                    if allowed_ips and allowed_ips != "(none)":
-                        ip = allowed_ips.split("/")[0]
-                        current_tx_rx[ip] = rx + tx
+            current_awg = {}
+            if out:
+                lines = out.strip().split("\n")
+                for line in lines[1:]:
+                    p = line.split("\t")
+                    if len(p) >= 8:
+                        allowed_ips = p[3]
+                        rx = int(p[5])
+                        tx = int(p[6])
+                        if allowed_ips and allowed_ips != "(none)":
+                            ip = allowed_ips.split("/")[0]
+                            current_awg[ip] = rx + tx
 
+            # 2. Xray Stats
+            current_xray = {}
+            try:
+                proc = await asyncio.create_subprocess_exec("/usr/local/bin/xray", "api", "statsquery", "--server=127.0.0.1:10085", "-pattern", "user>>>", stdout=asyncio.subprocess.PIPE)
+                stdout, _ = await proc.communicate()
+                import json as sys_json
+                if stdout:
+                    xray_stats = sys_json.loads(stdout.decode("utf-8"))
+                    for stat in xray_stats.get("stat", []):
+                        name_parts = stat.get("name", "").split(">>>")
+                        if len(name_parts) >= 2 and name_parts[0] == "user":
+                            email = name_parts[1]
+                            val = int(stat.get("value", 0))
+                            current_xray[email] = current_xray.get(email, 0) + val
+            except:
+                pass
+
+            # Map IP to Email for AWG
             awg_resp = await proxy_awg("GET", "/api/clients")
             awg_clients = []
             import json as sys_json
@@ -1156,8 +1197,7 @@ async def client_traffic_loop():
                 try:
                     awg_clients = sys_json.loads(awg_resp.body.decode("utf-8"))
                     if not isinstance(awg_clients, list): awg_clients = []
-                except:
-                    pass
+                except: pass
             
             ip_to_id = {c["address"].split("/")[0]: c["id"] for c in awg_clients if "address" in c}
             id_to_ip = {c["id"]: c["address"].split("/")[0] for c in awg_clients if "address" in c}
@@ -1168,17 +1208,10 @@ async def client_traffic_loop():
                 today = datetime.date.today().isoformat()
                 this_week = datetime.date.today().strftime("%Y-%V")
 
-                # 1. Update bytes
-                for ip, total_bytes in current_tx_rx.items():
-                    cid = ip_to_id.get(ip)
-                    if not cid: continue
-
-                    if cid not in db:
-                        db[cid] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-                        db[cid]["last_reset_day"] = today
-                        db[cid]["last_reset_week"] = this_week
-                        changed = True
-
+                all_cids = set(db.keys()) - {"__global__"}
+                
+                for cid in all_cids:
+                    if cid not in db: continue
                     c_db = db[cid]
                     
                     if c_db.get("last_reset_day") != today:
@@ -1190,13 +1223,24 @@ async def client_traffic_loop():
                         c_db["last_reset_week"] = this_week
                         changed = True
 
-                    last_bytes = last_tx_rx.get(ip, total_bytes)
-                    if total_bytes < last_bytes:
-                        delta_bytes = total_bytes
-                    else:
-                        delta_bytes = total_bytes - last_bytes
-                    
-                    last_tx_rx[ip] = total_bytes
+                    # Calculate AWG Delta
+                    awg_delta = 0
+                    ip = id_to_ip.get(cid)
+                    if ip and ip in current_awg:
+                        tot_awg = current_awg[ip]
+                        last = last_awg_bytes.get(ip, tot_awg)
+                        awg_delta = tot_awg if tot_awg < last else (tot_awg - last)
+                        last_awg_bytes[ip] = tot_awg
+
+                    # Calculate Xray Delta
+                    xray_delta = 0
+                    if cid in current_xray:
+                        tot_xray = current_xray[cid]
+                        last = last_xray_bytes.get(cid, tot_xray)
+                        xray_delta = tot_xray if tot_xray < last else (tot_xray - last)
+                        last_xray_bytes[cid] = tot_xray
+
+                    delta_bytes = awg_delta + xray_delta
 
                     if delta_bytes > 0:
                         delta_gb = delta_bytes / (1024**3)
@@ -1208,6 +1252,7 @@ async def client_traffic_loop():
                     limit = c_db.get("limit_gb", 1024)
                     is_throttled = c_db.get("is_throttled", False)
                     all_time_gb = c_db.get("all_time_gb", 0)
+                    
                     if all_time_gb >= limit and not is_throttled:
                         c_db["is_throttled"] = True
                         changed = True
@@ -1218,21 +1263,48 @@ async def client_traffic_loop():
                 if changed:
                     save_clients_db(db)
 
-            # 2. Re-apply tc filters
+            # Re-apply filters & Xray blocking
             proc_del = await asyncio.create_subprocess_exec("tc", "filter", "del", "dev", "awg0", stderr=asyncio.subprocess.DEVNULL)
             await proc_del.communicate()
+            
             for cid, c_db in db.items():
+                if cid == "__global__": continue
                 if isinstance(c_db, dict) and c_db.get("is_throttled"):
+                    # AWG Throttle
                     ip = id_to_ip.get(cid)
                     if ip:
                         proc_add = await asyncio.create_subprocess_exec("tc", "filter", "add", "dev", "awg0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", ip, "flowid", "1:20", stderr=asyncio.subprocess.DEVNULL)
                         await proc_add.communicate()
+                    
+                    # Xray Block (if not already blocked)
+                    if cid not in blocked_xray_users:
+                        try:
+                            proc = await asyncio.create_subprocess_exec("/usr/local/bin/xray", "api", "rmu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-e", cid)
+                            await proc.communicate()
+                            blocked_xray_users.add(cid)
+                        except: pass
+                elif isinstance(c_db, dict) and not c_db.get("is_throttled"):
+                    # Xray Unblock (if was blocked)
+                    if cid in blocked_xray_users:
+                        try:
+                            import json as sys_json
+                            xray_user = {
+                                "email": cid,
+                                "level": 0,
+                                "account": {
+                                    "id": c_db.get("vless_uuid", ""),
+                                    "flow": ""
+                                }
+                            }
+                            proc = await asyncio.create_subprocess_exec("/usr/local/bin/xray", "api", "adu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-u", sys_json.dumps(xray_user))
+                            await proc.communicate()
+                            blocked_xray_users.remove(cid)
+                        except: pass
 
         except Exception as e:
             logger.error(f"Client traffic loop error: {e}")
 
         await asyncio.sleep(10)
-
 
 # --- App Lifecycle ---
 @app.on_event("startup")
