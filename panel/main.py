@@ -10,7 +10,7 @@ import base64
 import os
 import subprocess
 import asyncio
-import secrets
+
 import paramiko
 import time
 import logging
@@ -19,6 +19,9 @@ import aiofiles
 import collections
 from collections import deque
 import datetime
+
+# Lock for thread-safe clients_db.json access
+db_lock = asyncio.Lock()
 
 class SSHPool:
     def __init__(self):
@@ -203,7 +206,7 @@ def delete_server(name: str, username: str = Depends(verify_credentials)):
     return {"status": "ok"}
 
 @app.post("/api/servers/auto-install")
-def auto_install_server(data: AutoInstallModel, username: str = Depends(verify_credentials)):
+async def auto_install_server(data: AutoInstallModel, background_tasks: BackgroundTasks, username: str = Depends(verify_credentials)):
     logger.info(f"Начинаем автоустановку на {data.ip}...")
 
     def run_ssh(ssh_client, cmd, timeout=300, sudo_pass=None):
@@ -572,8 +575,8 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     if res.status_code in [200, 201]:
         db = load_clients_db()
         if data["id"] not in db: 
-            import uuid, json, subprocess
-            v_uuid = str(uuid.uuid4())
+            import uuid as uuid_mod
+            v_uuid = str(uuid_mod.uuid4())
             db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False, "vless_uuid": v_uuid}
             
             xray_user = {
@@ -590,13 +593,6 @@ async def create_client(request: Request, username: str = Depends(verify_credent
                 logger.error(f"Xray adu error: {e}")
                 
         save_clients_db(db)
-        try:
-            with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-                servers = json.load(f)
-        except:
-            servers = []
-        generate_singbox_config(servers)
-        os.system("systemctl restart sing-box")
     return res
 
 @app.delete("/api/clients/{client_id}")
@@ -606,35 +602,15 @@ async def delete_client(client_id: str, username: str = Depends(verify_credentia
     if res.status_code in [200, 204]:
         db = load_clients_db()
         if client_id in db:
-            import subprocess
             try:
                 subprocess.run(["/usr/local/bin/xray", "api", "rmu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-e", client_id], check=False)
             except Exception as e:
                 logger.error(f"Xray rmu error: {e}")
             del db[client_id]
             save_clients_db(db)
-            try:
-                with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-                    servers = json.load(f)
-            except:
-                servers = []
-            generate_singbox_config(servers)
-            os.system("systemctl restart sing-box")
     return res
 
-async def ensure_ss_passwords():
-    db_path = os.path.join(PANEL_DIR, "clients_db.json")
-    if os.path.exists(db_path):
-        try:
-            with open(db_path, "r", encoding="utf-8") as f:
-                db = json.load(f)
-            need_save = False
-            # Passwords removed
-            if need_save:
-                with open(db_path, "w", encoding="utf-8") as f:
-                    json.dump(db, f, indent=2)
-        except Exception as e:
-            logger.error(f"Error checking SS passwords: {e}")
+
 
 @app.get("/sub/{client_id}")
 async def get_subscription(client_id: str):
@@ -682,36 +658,27 @@ async def get_client_config(request: Request, client_id: str, username: str = De
                 logger.info(f"Конфиг для {client_id} успешно получен")
                 awg_config = r.text
                 db = load_clients_db()
-                if client_id not in db:
-                    import uuid
-                    db[client_id] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False, "vless_uuid": str(uuid.uuid4())}
-                    
-                if "vless_uuid" not in db[client_id]:
-                    import uuid
-                    db[client_id]["vless_uuid"] = str(uuid.uuid4())
+                if client_id not in db or "vless_uuid" not in db.get(client_id, {}):
+                    # Don't create entries on GET — just use a temporary UUID for display
+                    import uuid as uuid_mod
+                    v_uuid = str(uuid_mod.uuid4())
+                else:
+                    v_uuid = db[client_id]["vless_uuid"]
                 
-                v_uuid = db[client_id]["vless_uuid"]
-                host = db["__global__"].get("domain", "blueorb.online")
-                pubkey = db["__global__"].get("reality_public_key", "")
-                short_id = db["__global__"].get("reality_short_ids", [""])[-1]
-                path = db["__global__"].get("xhttp_path", "")
-                sni = db["__global__"].get("reality_server_names", ["github.com"])[0]
+                global_cfg = db.get("__global__", {})
+                host = global_cfg.get("domain", "blueorb.online")
+                pubkey = global_cfg.get("reality_public_key", "")
+                short_id = global_cfg.get("reality_short_ids", [""])[-1]
+                path = global_cfg.get("xhttp_path", "")
+                sni = global_cfg.get("reality_server_names", ["github.com"])[0]
                 
                 import urllib.parse
                 name_encoded = urllib.parse.quote(client_id)
                 vless_url = f"vless://{v_uuid}@{host}:443?type=xhttp&path={path}&mode=stream-up&security=reality&sni={sni}&fp=chrome&pbk={pubkey}&sid={short_id}#{name_encoded}"
-                
-                need_save = False
-                if "domain" not in db["__global__"]:
-                    db["__global__"]["domain"] = "blueorb.online"
-                    need_save = True
-                    
-                if need_save:
-                    save_clients_db(db)
                     
                 sub_url = f"http://{host}:5000/sub/{client_id}"
                 
-                return {"config": awg_config, "vless_url": vless_url, "ss_uri": sub_url, "host": host}
+                return {"config": awg_config, "vless_url": vless_url, "ss_uri": sub_url, "host": host, "sni": sni}
             else:
                 logger.error(f"Не удалось получить конфиг для {client_id}: [{r.status_code}] {r.text}")
                 raise HTTPException(status_code=r.status_code, detail=f"awg-server error: {r.text}")
@@ -738,7 +705,7 @@ async def get_leaderboard(username: str = Depends(verify_credentials)):
 
     leaderboard = []
     for cid, data in clients_db.items():
-        if cid == "last_rx_tx": continue
+        if cid in ("__global__", "last_rx_tx"): continue
         leaderboard.append({
             "id": cid,
             "name": names_map.get(cid, cid),
@@ -975,7 +942,7 @@ def get_server_stats(server):
     try:
         ssh = ssh_pool.get_client(server)
         if not ssh:
-            return 0, 0, 0, 0, False
+            return 0, 0, 0, 0, 0, False
 
         iface = server.get("wg_interface", "awg0")
         cmd = f"""
@@ -990,7 +957,8 @@ def get_server_stats(server):
         out = stdout.read().decode('utf-8').strip().split('\n')
         
         cpu = 0
-        ram = 0
+        ram_used = 0
+        ram_total = 0
         transfer_data = []
         handshake_data = []
         parsing_handshakes = False
@@ -1021,8 +989,7 @@ def get_server_stats(server):
                             if (p := line.split()) and len(p) >= 2
                             and int(p[1]) > 0 and (time.time() - int(p[1])) < 300])
 
-        ram_used = locals().get("ram_used", 0)
-        ram_total = locals().get("ram_total", 0)
+
 
         return total_gb, active_users, cpu, ram_used, ram_total, True
     except Exception as e:

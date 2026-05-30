@@ -71,7 +71,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
         "default": selector_outbounds[-1] if len(selector_outbounds) > 1 else "direct"
     })
 
-    ws_path = "/secret-path"
+    xhttp_path = "/secret-path"
     domain = "blueorb.online"
     clients_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clients_db.json")
     try:
@@ -79,7 +79,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             with open(clients_db_path, "r", encoding="utf-8") as f:
                 db = json.load(f)
                 if "__global__" in db:
-                    ws_path = db["__global__"].get("ws_path", ws_path)
+                    xhttp_path = db["__global__"].get("xhttp_path", xhttp_path)
                     domain = db["__global__"].get("domain", domain)
     except Exception as e:
         print("Error loading clients_db:", e)

@@ -772,7 +772,7 @@
                     <div style="background:rgba(0,0,0,.4);padding:14px;border-radius:8px;font-size:14px;color:#fff; flex: 1; display:flex; flex-direction:column;">
                         <div style="margin-bottom: 12px;"><b>Домен/IP:</b> <span style="color:#4ade80;">{{ ssHost || 'blueorb.online' }}</span></div>
                         <div style="margin-bottom: 12px;"><b>Порт:</b> <span style="color:#4ade80;">443</span></div>
-                        <div style="margin-bottom: 12px;"><b>SNI:</b> <span style="color:#4ade80;">github.com</span></div>
+                        <div style="margin-bottom: 12px;"><b>SNI:</b> <span style="color:#4ade80;">{{ cfgSni || 'github.com' }}</span></div>
                         <div style="margin-bottom: 16px;"><b>Транспорт:</b> <span style="color:#4ade80;">XHTTP (Auto)</span></div>
                         
                         <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
@@ -827,6 +827,7 @@ createApp({
         const subUrl        = ref('');
         const newClientName = ref('');
         const currentCfgId  = ref('');
+        const cfgSni        = ref('');
 
         const autoForm = ref({ name:'', ip:'', ssh_port:22, ssh_user:'root', ssh_password:'', limit_gb:30, limit_users:5 });
         const manForm  = ref({ name:'', ip:'', port:51820, local_address:'10.66.66.2/32', private_key:'', peer_public_key:'', limit_gb:30, limit_users:5 });
@@ -1136,6 +1137,7 @@ const fetchClients = async () => {
                 const d = await r.json();
                 cfgText.value = d.config || '';
                 ssHost.value = d.host || 'blueorb.online';
+                cfgSni.value = d.sni || '';
                 vlessUrl.value = d.vless_url || '';
                 subUrl.value = d.ss_uri || '';
                 currentCfgId.value = id;
@@ -1211,7 +1213,7 @@ const fetchClients = async () => {
             settingsForm, settingsSaving, settingsSuccess, fetchSettings, saveSettings,
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
-            showAddClient, newClientName, showCfgModal, cfgText, ssHost, vlessUrl, subUrl, currentCfgId,
+            showAddClient, newClientName, showCfgModal, cfgText, ssHost, cfgSni, vlessUrl, subUrl, currentCfgId,
             diagService, diagLogs, diagLoading, fetchDiagLogs, copyDiagLogs, downloadDiagLogs,
             hasFatal, stripAnsi, logClass, orchStat, isCreating,
             fetchLogs, openModal, runAutoInstall, addManual, delServer,
