@@ -126,6 +126,7 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             "rules": [
                 {
                     "domain": [domain, "www.cloudflare.com"],
+                    "domain_suffix": ["discord.com", "discord.gg", "discordapp.net", "discordcdn.com"],
                     "server": "dns-local"
                 },
                 {
@@ -188,16 +189,8 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
             ],
             "auto_detect_interface": True,
             "final": "Select-Outbound",
-            "default_domain_resolver": "dns-local"
+            "default_domain_resolver": "dns-cloudflare"
         },
-        "experimental": {
-            "clash_api": {
-                "external_controller": "127.0.0.1:9090",
-                "external_ui": "",
-                "secret": "",
-                "default_mode": "rule"
-            }
-        }
     }
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -224,7 +217,7 @@ def generate_xray_config(db, output_path="/usr/local/etc/xray/config.json"):
             clients.append({
                 "id": data["vless_uuid"],
                 "email": cid,
-                "flow": "",
+                "flow": "xtls-rprx-vision",
                 "level": 0
             })
 
