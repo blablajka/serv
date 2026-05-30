@@ -317,6 +317,7 @@
             <button class="nav-btn" :class="{active: tab==='clients'}"  @click="tab='clients'">Клиенты</button>
             <button class="nav-btn" :class="{active: tab==='leaderboard'}" @click="fetchLeaderboard(); tab='leaderboard'">🏆 Leaderboard</button>
             <button class="nav-btn" :class="{active: tab==='diagnostics'}" @click="tab='diagnostics'">Диагностика</button>
+            <button class="nav-btn" :class="{active: tab==='settings'}" @click="fetchSettings(); tab='settings'">⚙️ Настройки</button>
         </nav>
     </header>
 
@@ -580,6 +581,39 @@
         </div>
     </div>
 
+
+    <!-- ══════════ SETTINGS TAB ══════════ -->
+    <div v-show="tab==='settings'">
+        <div class="row-between" style="margin-bottom: 20px;">
+            <h2 style="font-size:18px;font-weight:700;">Глобальные настройки</h2>
+        </div>
+        
+        <div class="card" style="max-width: 600px;">
+            <div class="form-group">
+                <label class="form-label">Domain / IP</label>
+                <input class="form-input" v-model="settingsForm.domain" placeholder="example.com">
+                <div style="font-size: 10px; color: var(--muted); margin-top: 4px;">Основной домен или IP адрес сервера для генерации ссылок</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">XHTTP Path</label>
+                <input class="form-input" v-model="settingsForm.xhttp_path" placeholder="/api/v1/stream/">
+                <div style="font-size: 10px; color: var(--muted); margin-top: 4px;">Путь для маскировки трафика (начинается с /)</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Reality Server Names (SNI)</label>
+                <input class="form-input" v-model="settingsForm.reality_server_names" placeholder="github.com">
+                <div style="font-size: 10px; color: var(--muted); margin-top: 4px;">Домен для маскировки (тот самый "Идеальный домен" из сканера)</div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top: 10px;" @click="saveSettings" :disabled="settingsSaving">
+                {{ settingsSaving ? '⏳ Сохранение и перезапуск...' : '💾 Сохранить и применить' }}
+            </button>
+            <div v-if="settingsSuccess" style="margin-top: 10px; color: var(--green); font-size: 12px; text-align: center;">✅ Настройки успешно применены!</div>
+        </div>
+    </div>
+
     <!-- ══════════ DIAGNOSTICS TAB ══════════ -->
     <div v-show="tab==='diagnostics'">
         <div class="row-between" style="margin-bottom: 20px;">
@@ -783,6 +817,10 @@ createApp({
         const diagService   = ref('sing-box');
         const diagLogs      = ref('');
         const diagLoading   = ref(false);
+        const settingsForm  = ref({ domain: '', xhttp_path: '', reality_server_names: '' });
+        const settingsSaving = ref(false);
+        const settingsSuccess = ref(false);
+
         const cfgText       = ref('');
         const ssHost        = ref('');
         const vlessUrl      = ref('');
@@ -942,7 +980,41 @@ createApp({
             try { const r = await fetch('/api/servers'); servers.value = await r.json(); } catch {}
         };
 
-        const fetchClients = async () => {
+        
+        const fetchSettings = async () => {
+            try {
+                const r = await fetch('/api/settings');
+                const d = await r.json();
+                settingsForm.value.domain = d.domain || '';
+                settingsForm.value.xhttp_path = d.xhttp_path || '';
+                settingsForm.value.reality_server_names = (d.reality_server_names && d.reality_server_names[0]) || '';
+            } catch (e) { console.error('Failed to fetch settings', e); }
+        };
+
+        const saveSettings = async () => {
+            settingsSaving.value = true;
+            settingsSuccess.value = false;
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settingsForm.value)
+                });
+                if (res.ok) {
+                    settingsSuccess.value = true;
+                    setTimeout(() => settingsSuccess.value = false, 3000);
+                } else {
+                    const error = await res.json();
+                    alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                }
+            } catch (e) {
+                alert('Ошибка сети: ' + e.message);
+            } finally {
+                settingsSaving.value = false;
+            }
+        };
+
+const fetchClients = async () => {
             try {
                 const r = await fetch('/api/clients');
                 const d = await r.json();
@@ -1136,6 +1208,7 @@ createApp({
         });
 
         return {
+            settingsForm, settingsSaving, settingsSuccess, fetchSettings, saveSettings,
             tab, status, logs, servers, clients, leaderboard, lbMode, sortedLeaderboard, sbRunning, logEl, logEl2,
             showModal, modalMode, installing, autoForm, manForm,
             showAddClient, newClientName, showCfgModal, cfgText, ssHost, vlessUrl, subUrl, currentCfgId,

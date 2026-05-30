@@ -768,6 +768,41 @@ async def set_client_limit(client_id: str, payload: dict, username: str = Depend
     save_clients_db(db)
     return {"status": "ok"}
 
+
+@app.get("/api/settings")
+async def get_settings(username: str = Depends(verify_credentials)):
+    db = load_clients_db()
+    return db.get("__global__", {})
+
+@app.post("/api/settings")
+async def update_settings(payload: dict, username: str = Depends(verify_credentials)):
+    db = load_clients_db()
+    if "__global__" not in db:
+        db["__global__"] = {}
+    
+    # Update only allowed fields
+    allowed_fields = ["domain", "xhttp_path", "reality_server_names"]
+    for k, v in payload.items():
+        if k in allowed_fields:
+            if k == "reality_server_names" and isinstance(v, str):
+                db["__global__"][k] = [v.strip()]
+            else:
+                db["__global__"][k] = v
+                
+    save_clients_db(db)
+    
+    # Re-generate configs and restart xray
+    try:
+        from config_generator import generate_xray_config
+        generate_xray_config(db)
+        import os
+        os.system("systemctl restart xray")
+        return {"status": "ok", "message": "Settings updated and Xray restarted"}
+    except Exception as e:
+        logger.error(f"Error applying settings: {e}")
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 @app.get("/api/diagnostics/logs")
 async def get_diagnostics_logs(service: str = "sing-box", username: str = Depends(verify_credentials)):
     try:
