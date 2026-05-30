@@ -390,6 +390,9 @@ if [ -n "$TARGET_IP" ]; then
     echo "🎯 Используем целевой IP: $TARGET_IP"
 fi
 
+# Уменьшаем таймаут для TLS-пробинга, чтобы пропускать медленные сервера
+export RSF_TIMEOUT=5
+
 run_engine
 
 # Отключаем strict mode (set -e), чтобы скрипт не падал при ошибках grep/dig/whois
@@ -409,7 +412,7 @@ if [ -z "$MY_ASN" ]; then
 else
     echo "✅ Ваш ASN: AS$MY_ASN"
     echo "----------------------------------------"
-    echo "🔍 Проверяем найденные домены на совпадение ASN..."
+    echo "🔍 Проверяем найденные домены на совпадение ASN (ускорено)..."
     
     if [ ! -f "domains.txt" ]; then
         echo "❌ Файл domains.txt не найден!"
@@ -418,14 +421,15 @@ else
     
     mv domains.txt domains_unfiltered.txt
     
-    while read -r DOMAIN; do
-        [ -z "$DOMAIN" ] && continue
+    # Запускаем проверку ASN параллельно для максимальной скорости!
+    check_domain() {
+        local DOMAIN=$1
+        local MY_ASN=$2
+        local DOMAIN_IP=$(dig +short "$DOMAIN" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+        if [ -z "$DOMAIN_IP" ]; then return; fi
         
-        DOMAIN_IP=$(dig +short "$DOMAIN" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-        if [ -z "$DOMAIN_IP" ]; then continue; fi
-        
-        ASN_INFO=$(whois -h whois.cymru.com " -v $DOMAIN_IP" | tail -1)
-        DOMAIN_ASN=$(echo "$ASN_INFO" | awk '{print $1}')
+        local ASN_INFO=$(whois -h whois.cymru.com " -v $DOMAIN_IP" | tail -1)
+        local DOMAIN_ASN=$(echo "$ASN_INFO" | awk '{print $1}')
         
         if [ "$DOMAIN_ASN" == "$MY_ASN" ]; then
             echo -e "✅ \033[0;32mИДЕАЛЬНОЕ СОВПАДЕНИЕ ASN:\033[0m $DOMAIN (IP: $DOMAIN_IP, AS$DOMAIN_ASN)"
@@ -433,8 +437,11 @@ else
         else
             echo -e "❌ \033[0;31mДРУГОЙ ПРОВАЙДЕР:\033[0m $DOMAIN (IP: $DOMAIN_IP, AS$DOMAIN_ASN)"
         fi
-        sleep 0.2
-    done < "domains_unfiltered.txt"
+    }
+    export -f check_domain
+    
+    # xargs запускает до 10 потоков проверки одновременно
+    cat domains_unfiltered.txt | xargs -n 1 -P 10 -I {} bash -c "check_domain {} $MY_ASN"
     
     echo "----------------------------------------"
     echo "🎉 Итоговый список идеальных доменов сохранен в domains.txt"
