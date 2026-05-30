@@ -136,9 +136,9 @@ def save_servers(servers):
         json.dump(servers, f, indent=2, ensure_ascii=False)
     generate_singbox_config(servers, CONFIG_FILE)
     try:
-        subprocess.run(["systemctl", "restart", "sing-box"], check=True, timeout=15)
+        subprocess.run(["systemctl", "reload-or-restart", "sing-box"], check=False, timeout=15)
     except Exception as e:
-        logger.error(f"Failed to restart sing-box: {e}")
+        logger.error(f"Failed to reload sing-box: {e}")
 
 class ServerModel(BaseModel):
     name: str
@@ -206,7 +206,7 @@ def delete_server(name: str, username: str = Depends(verify_credentials)):
     return {"status": "ok"}
 
 @app.post("/api/servers/auto-install")
-async def auto_install_server(data: AutoInstallModel, background_tasks: BackgroundTasks, username: str = Depends(verify_credentials)):
+def _do_install_server(data: AutoInstallModel):
     logger.info(f"Начинаем автоустановку на {data.ip}...")
 
     def run_ssh(ssh_client, cmd, timeout=300, sudo_pass=None):
@@ -427,6 +427,13 @@ async def auto_install_server(data: AutoInstallModel, background_tasks: Backgrou
 
     except Exception as e:
         logger.error(f"Ошибка автоустановки на {data.ip}: {e}")
+        raise Exception(str(e))
+
+@app.post("/api/servers/auto-install")
+async def auto_install_server(data: AutoInstallModel, background_tasks: BackgroundTasks, username: str = Depends(verify_credentials)):
+    try:
+        return await asyncio.to_thread(_do_install_server, data)
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/logs")
@@ -435,10 +442,12 @@ async def get_logs(username: str = Depends(verify_credentials)):
 
     # 1. Логи sing-box из journalctl
     try:
-        sb_logs = subprocess.check_output(
-            ["journalctl", "-u", "sing-box", "-n", "30", "-o", "cat"],
-            stderr=subprocess.STDOUT, text=True
+        proc = await asyncio.create_subprocess_exec(
+            "journalctl", "-u", "sing-box", "-n", "30", "-o", "cat",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
         )
+        stdout, _ = await proc.communicate()
+        sb_logs = stdout.decode("utf-8", errors="replace")
         for line in reversed(sb_logs.strip().split('\n')):
             if line:
                 logs_data.append(f"[SING-BOX] {line}")
@@ -447,10 +456,12 @@ async def get_logs(username: str = Depends(verify_credentials)):
 
     # 2. Логи xray из journalctl
     try:
-        xray_logs = subprocess.check_output(
-            ["journalctl", "-u", "xray", "-n", "30", "-o", "cat"],
-            stderr=subprocess.STDOUT, text=True
+        proc = await asyncio.create_subprocess_exec(
+            "journalctl", "-u", "xray", "-n", "30", "-o", "cat",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
         )
+        stdout, _ = await proc.communicate()
+        xray_logs = stdout.decode("utf-8", errors="replace")
         for line in reversed(xray_logs.strip().split('\n')):
             if line:
                 logs_data.append(f"[XRAY] {line}")
@@ -573,26 +584,28 @@ async def create_client(request: Request, username: str = Depends(verify_credent
     logger.info(f"Отправляем в awg-server: {payload}")
     res = await proxy_awg("POST", "/api/clients", payload)
     if res.status_code in [200, 201]:
-        db = load_clients_db()
-        if data["id"] not in db: 
-            import uuid as uuid_mod
-            v_uuid = str(uuid_mod.uuid4())
-            db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False, "vless_uuid": v_uuid}
-            
-            xray_user = {
-                "email": data["id"],
-                "level": 0,
-                "account": {
-                    "id": v_uuid,
-                    "flow": ""
-                }
-            }
-            try:
-                subprocess.run(["/usr/local/bin/xray", "api", "adu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-u", json.dumps(xray_user)], check=False)
-            except Exception as e:
-                logger.error(f"Xray adu error: {e}")
+        async with db_lock:
+            db = load_clients_db()
+            if data["id"] not in db: 
+                import uuid as uuid_mod
+                v_uuid = str(uuid_mod.uuid4())
+                db[data["id"]] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False, "vless_uuid": v_uuid}
                 
-        save_clients_db(db)
+                xray_user = {
+                    "email": data["id"],
+                    "level": 0,
+                    "account": {
+                        "id": v_uuid,
+                        "flow": ""
+                    }
+                }
+                try:
+                    proc = await asyncio.create_subprocess_exec("/usr/local/bin/xray", "api", "adu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-u", json.dumps(xray_user))
+                    await proc.communicate()
+                except Exception as e:
+                    logger.error(f"Xray adu error: {e}")
+                    
+            save_clients_db(db)
     return res
 
 @app.delete("/api/clients/{client_id}")
@@ -600,14 +613,16 @@ async def delete_client(client_id: str, username: str = Depends(verify_credentia
     logger.info(f"Поступил запрос на удаление клиента: {client_id}")
     res = await proxy_awg("DELETE", f"/api/clients/{client_id}")
     if res.status_code in [200, 204]:
-        db = load_clients_db()
-        if client_id in db:
-            try:
-                subprocess.run(["/usr/local/bin/xray", "api", "rmu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-e", client_id], check=False)
-            except Exception as e:
-                logger.error(f"Xray rmu error: {e}")
-            del db[client_id]
-            save_clients_db(db)
+        async with db_lock:
+            db = load_clients_db()
+            if client_id in db:
+                try:
+                    proc = await asyncio.create_subprocess_exec("/usr/local/bin/xray", "api", "rmu", "--server=127.0.0.1:10085", "-i", "vless-reality-xhttp", "-e", client_id)
+                    await proc.communicate()
+                except Exception as e:
+                    logger.error(f"Xray rmu error: {e}")
+                del db[client_id]
+                save_clients_db(db)
     return res
 
 
@@ -743,27 +758,31 @@ async def get_settings(username: str = Depends(verify_credentials)):
 
 @app.post("/api/settings")
 async def update_settings(payload: dict, username: str = Depends(verify_credentials)):
-    db = load_clients_db()
-    if "__global__" not in db:
-        db["__global__"] = {}
-    
-    # Update only allowed fields
-    allowed_fields = ["domain", "xhttp_path", "reality_server_names"]
-    for k, v in payload.items():
-        if k in allowed_fields:
-            if k == "reality_server_names" and isinstance(v, str):
-                db["__global__"][k] = [v.strip()]
-            else:
-                db["__global__"][k] = v
-                
-    save_clients_db(db)
-    
+    async with db_lock:
+        db = load_clients_db()
+        if "__global__" not in db:
+            db["__global__"] = {}
+        
+        # Update only allowed fields
+        allowed_fields = ["domain", "xhttp_path", "reality_server_names"]
+        for k, v in payload.items():
+            if k in allowed_fields:
+                if k == "reality_server_names" and isinstance(v, str):
+                    sni = v.strip()
+                    db["__global__"][k] = [sni]
+                    db["__global__"]["reality_target"] = f"{sni}:443"
+                else:
+                    db["__global__"][k] = v
+                    
+        save_clients_db(db)
+        db_copy = dict(db)
+        
     # Re-generate configs and restart xray
     try:
         from config_generator import generate_xray_config
-        generate_xray_config(db)
-        import os
-        os.system("systemctl restart xray")
+        generate_xray_config(db_copy)
+        proc = await asyncio.create_subprocess_exec("systemctl", "restart", "xray")
+        await proc.communicate()
         return {"status": "ok", "message": "Settings updated and Xray restarted"}
     except Exception as e:
         logger.error(f"Error applying settings: {e}")
@@ -1097,9 +1116,12 @@ async def orchestrator_loop():
 async def client_traffic_loop():
     """Сбор статистики локального awg0 (трафик клиентов), биллинг и шейпер 1mbit"""
     try:
-        subprocess.run(["tc", "qdisc", "add", "dev", "awg0", "root", "handle", "1:", "htb", "default", "10"], stderr=subprocess.DEVNULL)
-        subprocess.run(["tc", "class", "add", "dev", "awg0", "parent", "1:", "classid", "1:10", "htb", "rate", "1000mbit"], stderr=subprocess.DEVNULL)
-        subprocess.run(["tc", "class", "add", "dev", "awg0", "parent", "1:", "classid", "1:20", "htb", "rate", "1mbit"], stderr=subprocess.DEVNULL)
+        proc1 = await asyncio.create_subprocess_exec("tc", "qdisc", "add", "dev", "awg0", "root", "handle", "1:", "htb", "default", "10", stderr=asyncio.subprocess.DEVNULL)
+        await proc1.communicate()
+        proc2 = await asyncio.create_subprocess_exec("tc", "class", "add", "dev", "awg0", "parent", "1:", "classid", "1:10", "htb", "rate", "1000mbit", stderr=asyncio.subprocess.DEVNULL)
+        await proc2.communicate()
+        proc3 = await asyncio.create_subprocess_exec("tc", "class", "add", "dev", "awg0", "parent", "1:", "classid", "1:20", "htb", "rate", "1mbit", stderr=asyncio.subprocess.DEVNULL)
+        await proc3.communicate()
     except:
         pass
 
@@ -1108,7 +1130,9 @@ async def client_traffic_loop():
     while True:
         try:
             try:
-                out = subprocess.check_output(["awg", "show", "awg0", "dump"]).decode("utf-8")
+                proc = await asyncio.create_subprocess_exec("awg", "show", "awg0", "dump", stdout=asyncio.subprocess.PIPE)
+                stdout, _ = await proc.communicate()
+                out = stdout.decode("utf-8")
             except:
                 await asyncio.sleep(10)
                 continue
@@ -1138,68 +1162,71 @@ async def client_traffic_loop():
             ip_to_id = {c["address"].split("/")[0]: c["id"] for c in awg_clients if "address" in c}
             id_to_ip = {c["id"]: c["address"].split("/")[0] for c in awg_clients if "address" in c}
 
-            db = load_clients_db()
-            changed = False
-            today = datetime.date.today().isoformat()
-            this_week = datetime.date.today().strftime("%Y-%V")
+            async with db_lock:
+                db = load_clients_db()
+                changed = False
+                today = datetime.date.today().isoformat()
+                this_week = datetime.date.today().strftime("%Y-%V")
 
-            # 1. Update bytes
-            for ip, total_bytes in current_tx_rx.items():
-                cid = ip_to_id.get(ip)
-                if not cid: continue
+                # 1. Update bytes
+                for ip, total_bytes in current_tx_rx.items():
+                    cid = ip_to_id.get(ip)
+                    if not cid: continue
 
-                if cid not in db:
-                    db[cid] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
-                    db[cid]["last_reset_day"] = today
-                    db[cid]["last_reset_week"] = this_week
-                    changed = True
+                    if cid not in db:
+                        db[cid] = {"limit_gb": 1024.0, "all_time_gb": 0.0, "daily_gb": 0.0, "weekly_gb": 0.0, "is_throttled": False}
+                        db[cid]["last_reset_day"] = today
+                        db[cid]["last_reset_week"] = this_week
+                        changed = True
 
-                c_db = db[cid]
-                
-                if c_db.get("last_reset_day") != today:
-                    c_db["daily_gb"] = 0.0
-                    c_db["last_reset_day"] = today
-                    changed = True
-                if c_db.get("last_reset_week") != this_week:
-                    c_db["weekly_gb"] = 0.0
-                    c_db["last_reset_week"] = this_week
-                    changed = True
+                    c_db = db[cid]
+                    
+                    if c_db.get("last_reset_day") != today:
+                        c_db["daily_gb"] = 0.0
+                        c_db["last_reset_day"] = today
+                        changed = True
+                    if c_db.get("last_reset_week") != this_week:
+                        c_db["weekly_gb"] = 0.0
+                        c_db["last_reset_week"] = this_week
+                        changed = True
 
-                last_bytes = last_tx_rx.get(ip, total_bytes)
-                if total_bytes < last_bytes:
-                    delta_bytes = total_bytes
-                else:
-                    delta_bytes = total_bytes - last_bytes
-                
-                last_tx_rx[ip] = total_bytes
+                    last_bytes = last_tx_rx.get(ip, total_bytes)
+                    if total_bytes < last_bytes:
+                        delta_bytes = total_bytes
+                    else:
+                        delta_bytes = total_bytes - last_bytes
+                    
+                    last_tx_rx[ip] = total_bytes
 
-                if delta_bytes > 0:
-                    delta_gb = delta_bytes / (1024**3)
-                    c_db["all_time_gb"] = c_db.get("all_time_gb", 0) + delta_gb
-                    c_db["daily_gb"] = c_db.get("daily_gb", 0) + delta_gb
-                    c_db["weekly_gb"] = c_db.get("weekly_gb", 0) + delta_gb
-                    changed = True
+                    if delta_bytes > 0:
+                        delta_gb = delta_bytes / (1024**3)
+                        c_db["all_time_gb"] = c_db.get("all_time_gb", 0) + delta_gb
+                        c_db["daily_gb"] = c_db.get("daily_gb", 0) + delta_gb
+                        c_db["weekly_gb"] = c_db.get("weekly_gb", 0) + delta_gb
+                        changed = True
 
-                limit = c_db.get("limit_gb", 1024)
-                is_throttled = c_db.get("is_throttled", False)
-                all_time_gb = c_db.get("all_time_gb", 0)
-                if all_time_gb >= limit and not is_throttled:
-                    c_db["is_throttled"] = True
-                    changed = True
-                elif all_time_gb < limit and is_throttled:
-                    c_db["is_throttled"] = False
-                    changed = True
+                    limit = c_db.get("limit_gb", 1024)
+                    is_throttled = c_db.get("is_throttled", False)
+                    all_time_gb = c_db.get("all_time_gb", 0)
+                    if all_time_gb >= limit and not is_throttled:
+                        c_db["is_throttled"] = True
+                        changed = True
+                    elif all_time_gb < limit and is_throttled:
+                        c_db["is_throttled"] = False
+                        changed = True
 
-            if changed:
-                save_clients_db(db)
+                if changed:
+                    save_clients_db(db)
 
             # 2. Re-apply tc filters
-            subprocess.run(["tc", "filter", "del", "dev", "awg0"], stderr=subprocess.DEVNULL)
+            proc_del = await asyncio.create_subprocess_exec("tc", "filter", "del", "dev", "awg0", stderr=asyncio.subprocess.DEVNULL)
+            await proc_del.communicate()
             for cid, c_db in db.items():
-                if c_db.get("is_throttled"):
+                if isinstance(c_db, dict) and c_db.get("is_throttled"):
                     ip = id_to_ip.get(cid)
                     if ip:
-                        subprocess.run(["tc", "filter", "add", "dev", "awg0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", ip, "flowid", "1:20"], stderr=subprocess.DEVNULL)
+                        proc_add = await asyncio.create_subprocess_exec("tc", "filter", "add", "dev", "awg0", "protocol", "ip", "parent", "1:0", "prio", "1", "u32", "match", "ip", "dst", ip, "flowid", "1:20", stderr=asyncio.subprocess.DEVNULL)
+                        await proc_add.communicate()
 
         except Exception as e:
             logger.error(f"Client traffic loop error: {e}")
