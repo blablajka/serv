@@ -421,21 +421,39 @@ else
     
     mv domains.txt domains_unfiltered.txt
     
-    # Запускаем проверку ASN параллельно для максимальной скорости!
+    # Очищаем финальный файл перед записью
+    > domains.txt
+
+    # Запускаем проверку ASN и криптографии параллельно!
     check_domain() {
         local DOMAIN=$1
         local MY_ASN=$2
         local DOMAIN_IP=$(dig +short "$DOMAIN" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
         if [ -z "$DOMAIN_IP" ]; then return; fi
         
+        # 1. Проверка ASN
         local ASN_INFO=$(whois -h whois.cymru.com " -v $DOMAIN_IP" | tail -1)
         local DOMAIN_ASN=$(echo "$ASN_INFO" | awk '{print $1}')
         
-        if [ "$DOMAIN_ASN" == "$MY_ASN" ]; then
-            echo -e "✅ \033[0;32mИДЕАЛЬНОЕ СОВПАДЕНИЕ ASN:\033[0m $DOMAIN (IP: $DOMAIN_IP, AS$DOMAIN_ASN)"
+        if [ "$DOMAIN_ASN" != "$MY_ASN" ]; then
+            echo -e "❌ \033[0;31mДРУГОЙ ASN:\033[0m $DOMAIN (IP: $DOMAIN_IP, AS$DOMAIN_ASN)"
+            return
+        fi
+        
+        # 2. Проверка TLS 1.3 + X25519
+        local TLS13=$(echo | timeout 3 openssl s_client -connect "${DOMAIN}:443" -tls1_3 -groups X25519 -servername "${DOMAIN}" 2>&1 | grep -c "TLSv1.3")
+        
+        # 3. Проверка HTTP/2 ALPN
+        local H2=$(echo | timeout 3 openssl s_client -connect "${DOMAIN}:443" -servername "${DOMAIN}" -alpn h2 2>&1 | grep -c "ALPN protocol: h2")
+        
+        # 4. Проверка на отсутствие редиректа
+        local REDIR=$(curl -sI --max-time 3 "https://${DOMAIN}/" 2>/dev/null | grep -c -i "^location:")
+        
+        if [ "$TLS13" -gt 0 ] && [ "$H2" -gt 0 ] && [ "$REDIR" -eq 0 ]; then
+            echo -e "✅ \033[0;32mИДЕАЛЬНЫЙ ДОМЕН (ASN+TLS+H2):\033[0m $DOMAIN"
             echo "$DOMAIN" >> domains.txt
         else
-            echo -e "❌ \033[0;31mДРУГОЙ ПРОВАЙДЕР:\033[0m $DOMAIN (IP: $DOMAIN_IP, AS$DOMAIN_ASN)"
+            echo -e "⚠️  \033[0;33mПЛОХОЕ КРИПТО:\033[0m $DOMAIN (tls13=${TLS13} h2=${H2} redir=${REDIR})"
         fi
     }
     export -f check_domain
