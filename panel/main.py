@@ -354,7 +354,8 @@ def _do_install_server(data: AutoInstallModel):
             "h1": random.randint(5, 2147483647),
             "h2": random.randint(5, 2147483647),
             "h3": random.randint(5, 2147483647),
-            "h4": random.randint(5, 2147483647)
+            "h4": random.randint(5, 2147483647),
+            "i1": "<b 0xc9000000010884f4c093c2df61fe08e1fb2d4c8f084b3b0042063749ba8eb3cb9ab668f25d1784a750dbe23500a268b9c03f0309add5f45332fcc8b70114407ab673dac59038b1090e92e845d6e462eee7f08a81320bbb176bae079385158e01e185afb849b766f112495c81c1bc608fe742f72f9e6c33ac62c3046cda91f6ad901af3c4f29b6687e2b304dcbe5620a64fa197a66072f12dc6361ba7a54823f70352c97102429eea7e89cfd4deb42b1fe1879e148a97485182ea145e15b3ddb3cac15403103f985d5a8e2db3930bce8661b6ad31aa0faa977b2f66223967805931137be0814a6138c5f541b222b0d25add8221e1e36b40a138cfc9368e1f37530835a70f7a88135ed076bc89511ff10f6e08426877af6db78e4418e5bbf8c13ae47e7999f61ee0e6ba4fda23088fff05488bb30c72ce86e912e9e81ba0c11b80747e643f1a4466065167c8a612d8bab800cd32f5608b8ca9c318991feb3dc6b411c0ee5a6db3242ab1c642cb3b56eab5438446ffcce54f644506aa97f73fd2202c4515999cb181429952455cf5b1df603f3f08c503114fffe3b7190799ac195746e8da8d01416e612d3b46499813376035885e734c76c0312545b73a5f45f35a4bb7705cf7fb0fbe48446e4231fbd6491ef8468f6419f755fd5bcdccb76ceba928c5c4d3de0e7e79858101e91835089086b6f74065193f15e6230d380a04fd702bcdd0a95955e9e877852193714446f652b9d56be09ac1a6ec7d1c3e78c3801c>"
         }
         wg_port = random.randint(20000, 60000)
 
@@ -377,7 +378,8 @@ def _do_install_server(data: AutoInstallModel):
             f"H1 = {obfs['h1']}\n"
             f"H2 = {obfs['h2']}\n"
             f"H3 = {obfs['h3']}\n"
-            f"H4 = {obfs['h4']}\n"
+            f"H4 = {obfs[\'h4\']}\n"
+            f"I1 = {obfs[\'i1\']}\n"
             "SaveConfig = false\n"
             f"PostUp = iptables -A FORWARD -i awg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o {net_iface} -j MASQUERADE\n"
             f"PostDown = iptables -D FORWARD -i awg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o {net_iface} -j MASQUERADE\n"

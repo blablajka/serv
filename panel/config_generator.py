@@ -47,8 +47,11 @@ def generate_singbox_config(servers, output_path="/etc/sing-box/config.json"):
                 "h1": obfs_params.get("h1", 1),
                 "h2": obfs_params.get("h2", 2),
                 "h3": obfs_params.get("h3", 3),
-                "h4": obfs_params.get("h4", 4)
+                "h4": obfs_params.get("h4", 4),
+                "i1": obfs_params.get("i1", "")
             }
+            if not amnezia["i1"]:
+                del amnezia["i1"]
 
         # Endpoint (физическое WireGuard-соединение)
         endpoint = {
